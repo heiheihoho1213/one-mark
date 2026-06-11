@@ -1,0 +1,6 @@
+{
+  "name": "Markdown Workspace Editor",
+  "description": "A desktop-style Markdown reader and editor with nested folder workspaces, side-by-side reading and editing, and virtual or native file system attachments.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

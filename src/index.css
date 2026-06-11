@@ -1,0 +1,164 @@
+/* @import url('https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400;1,500&family=Plus+Jakarta+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap'); */
+@import "tailwindcss";
+
+@variant dark (&:where(.dark, .dark *));
+
+::selection {
+  background-color: rgba(192, 86, 33, 0.25);
+  color: inherit;
+}
+
+.dark ::selection {
+  background-color: var(--brand-rust) !important;
+  color: #ffffff !important;
+}
+
+:root, [data-theme="classic"] {
+  --brand-cream: #FCFAF8;
+  --brand-sidebar: #F5F2EF;
+  --brand-border: #E8E2DD;
+  --brand-rust: #C05621;
+}
+
+[data-theme="obsidian"] {
+  --brand-cream: #09090B;
+  --brand-sidebar: #121215;
+  --brand-border: #222226;
+  --brand-rust: #EA580C;
+}
+
+[data-theme="forest"] {
+  --brand-cream: #F4F7F5;
+  --brand-sidebar: #EAEEEC;
+  --brand-border: #D7E1DD;
+  --brand-rust: #2D6A4F;
+}
+
+[data-theme="glacier"] {
+  --brand-cream: #F0F4F8;
+  --brand-sidebar: #E6EDF4;
+  --brand-border: #CAD5E2;
+  --brand-rust: #1D4ED8;
+}
+
+[data-theme="cyberpunk"] {
+  --brand-cream: #0B0612;
+  --brand-sidebar: #130B1E;
+  --brand-border: #2A1742;
+  --brand-rust: #C026D3;
+}
+
+@theme {
+  --font-serif: "Lora", Georgia, serif;
+  --font-sans: "Plus Jakarta Sans", "Inter", sans-serif;
+  --color-brand-cream: var(--brand-cream);
+  --color-brand-sidebar: var(--brand-sidebar);
+  --color-brand-border: var(--brand-border);
+  --color-brand-rust: var(--brand-rust);
+}
+
+/* Custom Scrollbars */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(156, 163, 175, 0.25);
+  border-radius: 9999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(156, 163, 175, 0.45);
+}
+
+/* Elegant GFM Custom Markdown Styles with Editorial Aesthetics*/
+.markdown-body {
+  font-family: var(--font-sans);
+}
+
+.markdown-body h1 {
+  @apply text-3xl font-serif font-black border-b border-brand-border/60 pb-2 mb-4 mt-6 text-[#1a1a1a] dark:text-neutral-50 dark:border-neutral-800 leading-tight;
+}
+
+.markdown-body h2 {
+  @apply text-2xl font-serif font-semibold border-b border-brand-border/40 pb-1.5 mb-3.5 mt-5 text-[#3a3a3a] dark:text-neutral-100 dark:border-neutral-800;
+}
+
+.markdown-body h3 {
+  @apply text-xl font-serif font-semibold mb-3 mt-4 text-[#3a3a3a] dark:text-neutral-200;
+}
+
+.markdown-body h4 {
+  @apply text-lg font-serif font-medium mb-2 mt-4 text-[#4a4a4a] dark:text-neutral-300;
+}
+
+.markdown-body p {
+  @apply mb-4 leading-relaxed text-[#3a3a3a] dark:text-neutral-300 text-base font-serif;
+}
+
+.markdown-body a {
+  @apply text-brand-rust dark:text-amber-400 font-medium underline underline-offset-4 hover:opacity-80;
+}
+
+.markdown-body blockquote {
+  @apply pl-4 border-l-4 border-brand-rust bg-[#F5F2EF]/50 dark:bg-neutral-800/15 py-2 my-4 italic text-[#4a4a4a] dark:text-neutral-400 font-serif text-lg;
+}
+
+.markdown-body code {
+  @apply font-mono text-xs text-brand-rust dark:text-amber-400 bg-[#F5F2EF] dark:bg-neutral-950 px-1.5 py-0.5 rounded border border-brand-border/30;
+}
+
+.markdown-body pre {
+  @apply font-mono text-xs text-[#1a1a1a] dark:text-neutral-200 bg-[#F5F2EF] dark:bg-neutral-950 p-4 rounded-lg my-4 overflow-auto border border-brand-border/60 dark:border-neutral-900;
+}
+
+.markdown-body pre code {
+  @apply bg-transparent border-0 px-0 py-0 text-inherit text-[#1a1a1a] dark:text-neutral-200;
+}
+
+.markdown-body ul {
+  @apply list-disc pl-6 mb-4 space-y-1.5 text-[#3a3a3a] dark:text-neutral-300 font-serif;
+}
+
+.markdown-body ol {
+  @apply list-decimal pl-6 mb-4 space-y-1.5 text-[#3a3a3a] dark:text-neutral-300 font-serif;
+}
+
+.markdown-body li {
+  @apply leading-normal;
+}
+
+.markdown-body table {
+  @apply w-full border-collapse my-4 text-left font-sans text-sm;
+}
+
+.markdown-body th {
+  @apply font-semibold bg-[#F5F2EF] dark:bg-neutral-950 px-4 py-2 border-b border-brand-border dark:border-neutral-800 text-[#1a1a1a] dark:text-neutral-100;
+}
+
+.markdown-body td {
+  @apply px-4 py-2 border-b border-[#F5F2EF] dark:border-neutral-800/60 text-[#3a3a3a] dark:text-neutral-300;
+}
+
+.markdown-body tr:nth-child(even) {
+  @apply bg-[#FCFAF8]/40 dark:bg-neutral-900/10;
+}
+
+.markdown-body img {
+  @apply max-w-full rounded-md my-4 shadow-xs hover:scale-[1.005] transition-transform duration-200 mx-auto border border-brand-border dark:border-neutral-800;
+}
+
+/* Custom Task Checkbox alignment in Markdown renderer */
+.markdown-body input[type="checkbox"] {
+  @apply mr-2 w-4 h-4 rounded text-brand-rust border-brand-border focus:ring-brand-rust cursor-default accent-brand-rust;
+}
+
+/* Vditor visual code outlines */
+.editor-outline-link {
+  @apply block select-none px-3 py-1 text-xs text-gray-500 hover:text-brand-rust dark:text-neutral-400 dark:hover:text-brand-rust border-l border-brand-border dark:border-neutral-800 hover:border-brand-rust transition-colors duration-150 pl-4 py-1.5 hover:bg-brand-sidebar/50 dark:hover:bg-neutral-800/20;
+}
