@@ -148,6 +148,14 @@ export default function Toolbar({
   ) => {
     const activeElement = document.activeElement;
     if (activeElement && activeElement.getAttribute('contenteditable') === 'true') {
+      const syncBlockToMarkdown = () => {
+        const blockId = activeElement.getAttribute('data-block-id');
+        if (blockId === null) return;
+        window.dispatchEvent(new CustomEvent('one-mark-sync-block', {
+          detail: { blockId: Number(blockId), html: activeElement.innerHTML },
+        }));
+      };
+
       if (command === 'inline-code') {
         const selection = window.getSelection();
         if (selection && selection.rangeCount > 0) {
@@ -182,27 +190,9 @@ export default function Toolbar({
           range.insertNode(preElement);
         }
       } else if (command === 'table') {
-        const selection = window.getSelection();
-        if (selection && selection.rangeCount > 0) {
-          const range = selection.getRangeAt(0);
-          const tableHtml = `
-            <table>
-              <thead>
-                <tr><th>表头1</th><th>表头2</th><th>表头3</th></tr>
-              </thead>
-              <tbody>
-                <tr><td>内容1</td><td>内容2</td><td>内容3</td></tr>
-              </tbody>
-            </table>
-          `;
-          const temp = document.createElement('div');
-          temp.innerHTML = tableHtml.trim();
-          const tableElement = temp.firstChild;
-          if (tableElement) {
-            range.deleteContents();
-            range.insertNode(tableElement);
-          }
-        }
+        // 表格统一插入 Markdown 语法，避免 WYSIWYG 插入 HTML 后无法正确回写
+        onInsertMarkdown(prefix, suffix, defaultText);
+        return;
       } else if (command === 'formatBlock' && value === '<blockquote>') {
         const blockType = document.queryCommandValue('formatBlock') || '';
         if (blockType.toLowerCase() === 'blockquote') {
@@ -243,10 +233,9 @@ export default function Toolbar({
       // Update local styles UI immediately
       const event = new Event('selectionchange');
       document.dispatchEvent(event);
-      
-      // Force content change triggering via an input dispatch so parent component state captures WYSIWYG revisions
-      const inputEvent = new Event('input', { bubbles: true });
-      activeElement.dispatchEvent(inputEvent);
+
+      // 工具栏改格式后立即回写 Markdown 源码
+      syncBlockToMarkdown();
     } else {
       onInsertMarkdown(prefix, suffix, defaultText);
     }
@@ -343,7 +332,7 @@ export default function Toolbar({
       action: () => handleWYSIWYGFormat(
         'table',
         '',
-        '\n| 表头1 | 表头2 | 表头3 |\n| :--- | :---: | :---: |\n| 内容1 | 内容2 | 内容3 |\n',
+        '\n| 表头1 | 表头2 | 表头3 |\n| --- | --- | --- |\n| 内容1 | 内容2 | 内容3 |\n',
         '',
         ''
       ),

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   Folder, FileText, Settings, Laptop, Moon, Sun, Monitor, 
@@ -9,13 +9,21 @@ import Sidebar from './components/Sidebar';
 import Editor from './components/Editor';
 import Preview from './components/Preview';
 import Titlebar from './components/Titlebar';
+import DeleteConfirmDialog, { DeleteTarget } from './components/DeleteConfirmDialog';
+import CloseWorkspaceDialog from './components/CloseWorkspaceDialog';
 import { 
   WorkspaceItem, WorkspaceFile, WorkspaceFolder, 
-  DEFAULT_INITIAL_DATA, UserMode 
+  UserMode, isMarkdownFileName,
 } from './types';
 import { 
-  scanNativeDirectory, loadNativeFileContent, saveNativeFileContent 
+  scanNativeDirectory, loadNativeFileContent, saveNativeFileContent,
+  openMarkdownFileFromPath, scanTauriDirectory, loadTauriFileContent,
+  moveWorkspaceItemToTrash,
 } from './utils/fileSystem';
+import {
+  loadSavedTheme, saveTheme, saveWorkspaceSession, loadWorkspaceSession,
+  clearWorkspaceSession,
+} from './utils/sessionStorage';
 
 // Tauri 插件抛出的错误可能是字符串而非 Error 对象，统一提取可读信息
 function errMsg(err: unknown): string {
@@ -26,14 +34,12 @@ function errMsg(err: unknown): string {
 }
 
 export default function App() {
-  // Theme & Mode states (custom theme support)
-  const [theme, setTheme] = useState<string>(() => {
-    return localStorage.getItem('markdown_theme') || 'classic';
-  });
+  // Theme & Mode states（主题选择持久化到 localStorage）
+  const [theme, setTheme] = useState<string>(() => loadSavedTheme());
   const mode = 'write';
 
   useEffect(() => {
-    localStorage.setItem('markdown_theme', theme);
+    saveTheme(theme);
     const root = document.documentElement;
     root.setAttribute('data-theme', theme);
     if (theme === 'obsidian' || theme === 'cyberpunk') {
@@ -43,52 +49,245 @@ export default function App() {
     }
   }, [theme]);
   
-  // Workspace state
+  // Workspace state（启动时为空白，无沙盒数据）
   const [items, setItems] = useState<Record<string, WorkspaceItem>>({});
   const [activeFileId, setActiveFileId] = useState<string | null>(null);
-  const [workspaceType, setWorkspaceType] = useState<'native' | 'virtual'>('virtual');
-  const [workspaceName, setWorkspaceName] = useState('沙盒虚拟工作空间');
+  const [workspaceType, setWorkspaceType] = useState<'native' | 'empty'>('empty');
+  const [workspaceName, setWorkspaceName] = useState('');
   const [nativeDirectoryHandle, setNativeDirectoryHandle] = useState<FileSystemDirectoryHandle | null>(null);
+  // 标记是否已通过「打开文件」事件加载，避免与自动恢复会话冲突
+  const openedViaSystemRef = useRef(false);
+
+  const isTauriEnv = () => typeof window !== 'undefined' && (
+    (window as any).__TAURI_INTERNALS__ !== undefined ||
+    (window as any).__TAURI__ !== undefined ||
+    navigator.userAgent.toLowerCase().includes('tauri')
+  );
 
   // Message notifications and status triggers
   const [toasts, setToasts] = useState<{ id: string; text: string; type: 'success' | 'info' | 'error' }[]>([]);
+  // 待删除项（弹窗二次确认）
+  const [deleteTarget, setDeleteTarget] = useState<DeleteTarget | null>(null);
+  // 待关闭的工作区文件夹名
+  const [closeWorkspaceName, setCloseWorkspaceName] = useState<string | null>(null);
 
-  const addToast = (text: string, type: 'success' | 'info' | 'error' = 'success') => {
+  const addToast = useCallback((text: string, type: 'success' | 'info' | 'error' = 'success') => {
     const id = Math.random().toString();
     setToasts(prev => [...prev, { id, text, type }]);
     setTimeout(() => {
       setToasts(prev => prev.filter(t => t.id !== id));
     }, 4000);
-  };
+  }, []);
 
-  // 1. Initial workspace loader
-  useEffect(() => {
-    const saved = localStorage.getItem('markdown_workspace_items_v2');
-    if (saved) {
-      try {
-        const parsed = JSON.parse(saved);
-        setItems(parsed);
-        // Find first file markdown to activate by default
-        const mdFile = Object.values(parsed).find(item => (item as any).type === 'file' && (item as any).name.endsWith('.md')) as WorkspaceFile;
-        if (mdFile) {
-          setActiveFileId(mdFile.id);
-        }
-      } catch (e) {
-        setItems(DEFAULT_INITIAL_DATA);
-        setActiveFileId('root/readme.md');
-      }
-    } else {
-      setItems(DEFAULT_INITIAL_DATA);
-      setActiveFileId('root/readme.md');
+  /** 将工作区目录与当前文档写入本地存储 */
+  const persistWorkspaceSession = useCallback((
+    workspaceItems: Record<string, WorkspaceItem>,
+    fileId: string | null
+  ) => {
+    const rootFolder = workspaceItems['root'] as WorkspaceFolder | undefined;
+    const workspacePath = rootFolder?.tauriPath;
+    if (workspacePath && fileId) {
+      saveWorkspaceSession(workspacePath, fileId);
     }
   }, []);
 
-  // Save virtual workspace state to Local Storage
-  const persistVirtualWorkspace = (updatedItems: Record<string, WorkspaceItem>) => {
-    if (workspaceType === 'virtual') {
-      localStorage.setItem('markdown_workspace_items_v2', JSON.stringify(updatedItems));
+  /** 从磁盘绝对路径导入所在文件夹并打开目标 Markdown 文件 */
+  const loadWorkspaceFromFilePath = useCallback(async (filePath: string) => {
+    try {
+      const result = await openMarkdownFileFromPath(filePath);
+      setWorkspaceType('native');
+      setWorkspaceName(result.workspaceName);
+      setItems(result.items);
+      setActiveFileId(result.activeFileId);
+      persistWorkspaceSession(result.items, result.activeFileId);
+      addToast(`已打开：${result.items[result.activeFileId]?.name ?? filePath}`, 'success');
+      return true;
+    } catch (err) {
+      addToast(`打开文件失败: ${errMsg(err)}`, 'error');
+      return false;
     }
-  };
+  }, [addToast, persistWorkspaceSession]);
+
+  // 同步窗口标题到系统原生标题栏（文档名 — OneMark）
+  useEffect(() => {
+    const activeFileName = activeFileId && items[activeFileId] ? items[activeFileId].name : null;
+    const title = activeFileName ? `${activeFileName} — OneMark` : 'OneMark';
+    document.title = title;
+
+    const syncTauriTitle = async () => {
+      const isTauri = typeof window !== 'undefined' && (
+        (window as any).__TAURI_INTERNALS__ !== undefined ||
+        (window as any).__TAURI__ !== undefined ||
+        navigator.userAgent.toLowerCase().includes('tauri')
+      );
+      if (!isTauri) return;
+
+      try {
+        let win;
+        try {
+          const { getCurrentWebviewWindow } = await import('@tauri-apps/api/webviewWindow');
+          win = getCurrentWebviewWindow();
+        } catch {
+          const { getCurrentWindow } = await import('@tauri-apps/api/window');
+          win = getCurrentWindow();
+        }
+        await win.setTitle(title);
+      } catch (e) {
+        console.error('Tauri setTitle failed:', e);
+      }
+    };
+    syncTauriTitle();
+  }, [activeFileId, items]);
+
+  // 监听系统「打开方式」传入的文件路径
+  useEffect(() => {
+    if (!isTauriEnv()) return;
+
+    let unlistenOpen: (() => void) | undefined;
+    let unlistenDrop: (() => void) | undefined;
+
+    const setupListeners = async () => {
+      const { listen } = await import('@tauri-apps/api/event');
+      unlistenOpen = await listen<string[]>('open-files', async (event) => {
+        openedViaSystemRef.current = true;
+        const filePath = event.payload?.find((p) => /\.(md|markdown|txt)$/i.test(p));
+        if (filePath) await loadWorkspaceFromFilePath(filePath);
+      });
+
+      // Tauri 原生拖放：拖入 .md 后导入所在文件夹并打开
+      const { getCurrentWebviewWindow } = await import('@tauri-apps/api/webviewWindow');
+      const win = getCurrentWebviewWindow();
+      unlistenDrop = await win.onDragDropEvent(async (event) => {
+        if (event.payload.type !== 'drop') return;
+        const filePath = event.payload.paths.find((p) => /\.(md|markdown|txt)$/i.test(p));
+        if (filePath) await loadWorkspaceFromFilePath(filePath);
+      });
+    };
+
+    setupListeners();
+    return () => {
+      unlistenOpen?.();
+      unlistenDrop?.();
+    };
+  }, [loadWorkspaceFromFilePath]);
+
+  // 启动时恢复上次打开的本地目录与文档（桌面端）
+  useEffect(() => {
+    if (!isTauriEnv()) return;
+
+    const restoreLastSession = async () => {
+      // 稍等系统「打开文件」事件，避免重复加载
+      await new Promise((resolve) => setTimeout(resolve, 150));
+      if (openedViaSystemRef.current) return;
+
+      const { workspacePath, activeFileId: savedFileId } = loadWorkspaceSession();
+      if (!workspacePath) return;
+
+      try {
+        const { exists } = await import('@tauri-apps/plugin-fs');
+        const pathExists = await exists(workspacePath);
+        if (!pathExists) return;
+
+        const scannedItems = await scanTauriDirectory(workspacePath, 'root');
+        const pathParts = workspacePath.replace(/\\/g, '/').split('/');
+        const dirName = pathParts[pathParts.length - 1] || workspacePath;
+
+        setWorkspaceType('native');
+        setWorkspaceName(dirName);
+        setItems(scannedItems);
+
+        let targetId = savedFileId && scannedItems[savedFileId] ? savedFileId : null;
+        if (!targetId) {
+          const firstMd = Object.values(scannedItems).find(
+            (item) => item.type === 'file' && item.name.toLowerCase().endsWith('.md')
+          );
+          targetId = firstMd?.id ?? null;
+        }
+
+        if (targetId && scannedItems[targetId]?.type === 'file') {
+          const file = scannedItems[targetId] as WorkspaceFile;
+          const details = await loadTauriFileContent(file);
+          const updatedFile = { ...file, content: details.content, dataUrl: details.dataUrl } as WorkspaceFile;
+          setItems((prev) => ({ ...prev, [targetId!]: updatedFile }));
+          setActiveFileId(targetId);
+          persistWorkspaceSession({ ...scannedItems, [targetId]: updatedFile }, targetId);
+        } else {
+          setActiveFileId(null);
+        }
+      } catch (err) {
+        console.error('恢复上次工作区失败:', err);
+      }
+    };
+
+    restoreLastSession();
+  }, [persistWorkspaceSession]);
+
+  // 切换文档时同步保存当前打开的文件
+  useEffect(() => {
+    if (workspaceType !== 'native' || !activeFileId) return;
+    persistWorkspaceSession(items, activeFileId);
+  }, [activeFileId, workspaceType, items, persistWorkspaceSession]);
+
+  /** 从磁盘重新扫描工作区，合并已加载的文件内容 */
+  const refreshWorkspace = useCallback(async (preferredActiveId?: string | null) => {
+    if (workspaceType !== 'native') return;
+
+    const rootFolder = items['root'] as WorkspaceFolder | undefined;
+    if (!rootFolder) return;
+
+    try {
+      let scannedItems: Record<string, WorkspaceItem>;
+
+      if (rootFolder.tauriPath) {
+        scannedItems = await scanTauriDirectory(rootFolder.tauriPath, 'root');
+      } else if (rootFolder.handle) {
+        scannedItems = await scanNativeDirectory(rootFolder.handle, 'root');
+      } else {
+        return;
+      }
+
+      // 保留内存中已加载的正文，避免刷新后丢失编辑内容
+      const mergedItems = { ...scannedItems };
+      Object.entries(items).forEach(([id, oldItem]) => {
+        const node = oldItem as WorkspaceItem;
+        if (node.type !== 'file') return;
+        const oldFile = node as WorkspaceFile;
+        const newFile = mergedItems[id] as WorkspaceFile | undefined;
+        if (newFile?.type === 'file' && (oldFile.content || oldFile.dataUrl)) {
+          mergedItems[id] = { ...newFile, content: oldFile.content, dataUrl: oldFile.dataUrl };
+        }
+      });
+
+      let nextActiveId = preferredActiveId ?? activeFileId;
+      if (nextActiveId && !mergedItems[nextActiveId]) {
+        const firstMd = Object.values(mergedItems).find(
+          (i) => i.type === 'file' && isMarkdownFileName(i.name)
+        );
+        nextActiveId = firstMd?.id ?? null;
+      }
+
+      if (nextActiveId && mergedItems[nextActiveId]?.type === 'file') {
+        const file = mergedItems[nextActiveId] as WorkspaceFile;
+        if (!file.content && !file.dataUrl) {
+          if (file.tauriPath) {
+            const details = await loadTauriFileContent(file);
+            mergedItems[nextActiveId] = { ...file, ...details };
+          } else if (file.handle) {
+            const details = await loadNativeFileContent(file);
+            mergedItems[nextActiveId] = { ...file, ...details };
+          }
+        }
+      }
+
+      setItems(mergedItems);
+      setActiveFileId(nextActiveId);
+      if (nextActiveId) {
+        persistWorkspaceSession(mergedItems, nextActiveId);
+      }
+    } catch (err) {
+      addToast(`刷新目录失败: ${errMsg(err)}`, 'error');
+    }
+  }, [workspaceType, items, activeFileId, addToast, persistWorkspaceSession]);
 
   // Native folder picking API (File System Access API or Tauri Native Dialog)
   const handleConnectLocalFolder = async () => {
@@ -109,9 +308,7 @@ export default function App() {
           });
 
           if (selected && typeof selected === 'string') {
-            const { scanTauriDirectory, loadTauriFileContent } = await import('./utils/fileSystem');
             setWorkspaceType('native');
-            
             const pathParts = selected.replace(/\\/g, '/').split('/');
             const dirName = pathParts[pathParts.length - 1] || selected;
             setWorkspaceName(dirName);
@@ -135,6 +332,10 @@ export default function App() {
                 [updatedFirstMd.id]: updatedFirstMd,
               }));
               setActiveFileId(updatedFirstMd.id);
+              persistWorkspaceSession(
+                { ...scannedItems, [updatedFirstMd.id]: updatedFirstMd },
+                updatedFirstMd.id
+              );
             } else {
               setActiveFileId(null);
             }
@@ -149,7 +350,7 @@ export default function App() {
 
       // 2. Browser local folder picker fallback
       if (!(window as any).showDirectoryPicker) {
-        addToast('您的浏览器不支持 Direct Disk Access API，已为您自动进入安全隔离的沙盒虚拟工作空间。', 'error');
+        addToast('您的浏览器不支持本地文件夹访问，请使用桌面客户端。', 'error');
         return;
       }
 
@@ -253,7 +454,6 @@ export default function App() {
       [activeFileId]: updatedFile,
     };
     setItems(updatedItems);
-    persistVirtualWorkspace(updatedItems);
 
     // Save physical disk if native workspace is linked
     if (workspaceType === 'native') {
@@ -398,10 +598,14 @@ export default function App() {
     };
 
     setItems(nextItems);
-    persistVirtualWorkspace(nextItems);
 
     if (type === 'file') {
       setActiveFileId(newId);
+    }
+
+    // 操作完成后从磁盘刷新目录树
+    if (workspaceType === 'native') {
+      await refreshWorkspace(type === 'file' ? newId : activeFileId);
     }
     
     addToast(`已新建 ${type === 'file' ? '文档' : '文件夹'}: "${name}"`, 'success');
@@ -420,8 +624,41 @@ export default function App() {
     delete nodes[targetId];
   };
 
-  // Delete an item from tree
-  const handleDeleteItem = async (itemId: string) => {
+  // 打开关闭工作区确认弹窗
+  const handleRequestCloseWorkspace = () => {
+    const root = items['root'] as WorkspaceFolder | undefined;
+    if (!root || workspaceType !== 'native') return;
+    setCloseWorkspaceName(root.name || workspaceName || '当前文件夹');
+  };
+
+  // 二次确认后关闭文件夹引用（不删除磁盘文件）
+  const executeCloseWorkspace = () => {
+    setCloseWorkspaceName(null);
+    setWorkspaceType('empty');
+    setItems({});
+    setActiveFileId(null);
+    setWorkspaceName('');
+    setNativeDirectoryHandle(null);
+    clearWorkspaceSession();
+    addToast('已关闭文件夹引用', 'info');
+  };
+
+  // 打开删除确认弹窗（第一步）
+  const handleRequestDelete = (itemId: string) => {
+    const item = items[itemId];
+    if (!item) return;
+
+    setDeleteTarget({
+      id: itemId,
+      name: item.name,
+      type: item.type === 'directory' ? 'directory' : 'file',
+    });
+  };
+
+  // 二次确认后执行：移入回收站
+  const executeDeleteItem = async (itemId: string) => {
+    setDeleteTarget(null);
+
     const item = items[itemId];
     if (!item) return;
 
@@ -429,49 +666,37 @@ export default function App() {
     const parentFolder = items[parentId] as WorkspaceFolder;
     if (!parentFolder) return;
 
-    // confirm deletes
-    if (!confirm(`确定要永久删除 ${item.type === 'file' ? '文件' : '文件夹'} "${item.name}" 吗？此操作无法撤销。`)) {
-      return;
-    }
-
     if (workspaceType === 'native') {
       try {
-        if (parentFolder.handle) {
-          await parentFolder.handle.removeEntry(item.name, { recursive: true });
-        } else if (item.tauriPath) {
-          const { remove } = await import('@tauri-apps/plugin-fs');
-          await remove(item.tauriPath, { recursive: true });
-        }
+        await moveWorkspaceItemToTrash(item, parentFolder);
       } catch (err: any) {
-        addToast(`本地磁盘物理删除失败: ${errMsg(err)}`, 'error');
+        addToast(`移入回收站失败: ${errMsg(err)}`, 'error');
         return;
       }
     }
 
     const nextItems = { ...items };
-    // Remove node recursive
     deleteNodeHelper(nextItems, itemId);
 
-    // Remove from parents
     nextItems[parentId] = {
       ...parentFolder,
       children: parentFolder.children.filter(id => id !== itemId),
     } as WorkspaceFolder;
 
-    setItems(nextItems);
-    persistVirtualWorkspace(nextItems);
-
-    // If active file is deleted, resolve default active tab
+    let nextActiveId = activeFileId;
     if (activeFileId === itemId || activeFileId?.startsWith(itemId + '/')) {
       const remainingFiles = Object.values(nextItems).filter(i => (i as any).type === 'file') as WorkspaceFile[];
-      if (remainingFiles.length > 0) {
-        setActiveFileId(remainingFiles[0].id);
-      } else {
-        setActiveFileId(null);
-      }
+      nextActiveId = remainingFiles.length > 0 ? remainingFiles[0].id : null;
     }
 
-    addToast(`已成功删除: "${item.name}"`, 'info');
+    setItems(nextItems);
+    setActiveFileId(nextActiveId);
+
+    if (workspaceType === 'native') {
+      await refreshWorkspace(nextActiveId);
+    }
+
+    addToast(`已移入回收站: "${item.name}"`, 'info');
   };
 
   // Rename a file or directory
@@ -561,118 +786,54 @@ export default function App() {
     }
 
     setItems(nextItems);
-    persistVirtualWorkspace(nextItems);
 
+    const nextActiveId = activeFileId === itemId ? newId : activeFileId;
     if (activeFileId === itemId) {
       setActiveFileId(newId);
+    }
+
+    // 操作完成后从磁盘刷新目录树
+    if (workspaceType === 'native') {
+      await refreshWorkspace(nextActiveId);
     }
 
     addToast(`已成功重命名为 "${newName}"`, 'success');
   };
 
-  // Reset virtual workspace back to initial sandbox tutorial state
-  const handleResetVirtualWorkspace = () => {
-    if (confirm('确定要清除所有沙盒内容并恢复到初始默认教程文档吗？此操作会抹除您在虚拟隔离区中的改动。')) {
-      localStorage.removeItem('markdown_workspace_items_v2');
-      setItems(DEFAULT_INITIAL_DATA);
-      setActiveFileId('root/readme.md');
-      setWorkspaceType('virtual');
-      setWorkspaceName('沙盒虚拟工作空间');
-      addToast('已将沙盒虚拟工作空间恢复至初始演示配置！', 'info');
-    }
-  };
-
-  // Client-side ZIP/Collection download fallback representation
-  // Since we are pure-client side, we compiles files into a single master JSON export
-  // containing all documents content and raw image elements which can be re-imported!
-  const handleExportVirtualCollection = () => {
-    try {
-      const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(items, null, 2));
-      const downloadAnchor = document.createElement('a');
-      downloadAnchor.setAttribute("href", dataStr);
-      downloadAnchor.setAttribute("download", `markdown-workspace-backup.json`);
-      document.body.appendChild(downloadAnchor);
-      downloadAnchor.click();
-      downloadAnchor.remove();
-      addToast('工作空间备份包 JSON 导出成功，您可以随时将其保存或重载！', 'success');
-    } catch (e) {
-      addToast('打包导出文档失败', 'error');
-    }
-  };
-
-  // Drag-and-drop file listener for workspace loading
+  // 浏览器环境下的 HTML5 拖放（桌面端由 Tauri onDragDropEvent 处理）
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault();
   };
 
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault();
+    if (isTauriEnv()) return;
+
     const droppedFiles = e.dataTransfer.files;
     if (!droppedFiles || droppedFiles.length === 0) return;
 
-    // Detect target folder. Auto place inside images if dropping an image
     const firstDropped = droppedFiles[0];
+    if (/\.(md|markdown|txt)$/i.test(firstDropped.name)) {
+      addToast('浏览器预览模式无法导入文件夹，请使用桌面版拖放或「打开方式」。', 'info');
+      return;
+    }
+
+    if (workspaceType !== 'native' || !items['root']) {
+      addToast('请先选择本地文件夹，再拖入资源文件。', 'info');
+      return;
+    }
+
     const isImage = firstDropped.type.startsWith('image/') || /\.(png|jpe?g|gif|svg|webp)$/i.test(firstDropped.name);
     const targetFolderId = isImage && items['root/images'] ? 'root/images' : 'root';
 
     const reader = new FileReader();
-    if (firstDropped.name.toLowerCase().endsWith('.md') || firstDropped.name.toLowerCase().endsWith('.txt')) {
-      reader.onload = () => {
-        handleCreateItem(targetFolderId, firstDropped.name, 'file', reader.result as string);
-      };
-      reader.readAsText(firstDropped);
-    } else {
-      reader.onload = () => {
-        handleCreateItem(targetFolderId, firstDropped.name, 'file', '', {
-          mimeType: firstDropped.type,
-          dataUrl: reader.result as string,
-        });
-      };
-      reader.readAsDataURL(firstDropped);
-    }
-  };
-
-  // Tauri window control actions helper
-  const handleTauriWindowAction = async (action: 'close' | 'minimize' | 'maximize' | 'fullscreen') => {
-    const isTauri = typeof window !== 'undefined' && (
-      (window as any).__TAURI_INTERNALS__ !== undefined ||
-      (window as any).__TAURI__ !== undefined ||
-      navigator.userAgent.toLowerCase().includes('tauri')
-    );
-    if (isTauri) {
-      try {
-        let win;
-        try {
-          const { getCurrentWebviewWindow } = await import('@tauri-apps/api/webviewWindow');
-          win = getCurrentWebviewWindow();
-        } catch {
-          const { getCurrentWindow } = await import('@tauri-apps/api/window');
-          win = getCurrentWindow();
-        }
-
-        if (action === 'close') {
-          await win.close();
-        } else if (action === 'minimize') {
-          await win.minimize();
-        } else if (action === 'maximize') {
-          // Windows 行为：maximize/unmaximize 切换
-          const maximized = await win.isMaximized();
-          if (maximized) {
-            await win.unmaximize();
-          } else {
-            await win.maximize();
-          }
-        } else if (action === 'fullscreen') {
-          // macOS 行为：全屏/退出全屏 切换
-          const fullscreen = await win.isFullscreen();
-          await win.setFullscreen(!fullscreen);
-        }
-      } catch (e) {
-        console.error('Tauri window action failed:', e);
-      }
-    } else {
-      addToast(`在 Web 网页浏览器中，已模拟的桌面客户端原生 ${action === 'close' ? '关闭' : action === 'minimize' ? '最小化' : '自适应最大化'} 动作！`, 'info');
-    }
+    reader.onload = () => {
+      handleCreateItem(targetFolderId, firstDropped.name, 'file', '', {
+        mimeType: firstDropped.type,
+        dataUrl: reader.result as string,
+      });
+    };
+    reader.readAsDataURL(firstDropped);
   };
 
   return (
@@ -682,10 +843,6 @@ export default function App() {
       onDrop={handleDrop}
     >
       <Titlebar
-        onMinimize={() => handleTauriWindowAction('minimize')}
-        onMaximize={() => handleTauriWindowAction('maximize')}
-        onFullscreen={() => handleTauriWindowAction('fullscreen')}
-        onClose={() => handleTauriWindowAction('close')}
         activeFileName={activeFileId && items[activeFileId] ? items[activeFileId].name : null}
         workspaceName={workspaceName}
         workspaceType={workspaceType}
@@ -713,6 +870,18 @@ export default function App() {
         </AnimatePresence>
       </div>
 
+      <DeleteConfirmDialog
+        target={deleteTarget}
+        onCancel={() => setDeleteTarget(null)}
+        onConfirm={executeDeleteItem}
+      />
+
+      <CloseWorkspaceDialog
+        folderName={closeWorkspaceName}
+        onCancel={() => setCloseWorkspaceName(null)}
+        onConfirm={executeCloseWorkspace}
+      />
+
       {/* Main Workspace Frame */}
       <div className="flex flex-1 overflow-hidden relative">
         {/* Directory Sidebar */}
@@ -722,12 +891,11 @@ export default function App() {
           activeFileId={activeFileId}
           onSelectFile={handleSelectFile}
           onCreateItem={handleCreateItem}
-          onDeleteItem={handleDeleteItem}
+          onDeleteItem={handleRequestDelete}
           onRenameItem={handleRenameItem}
           workspaceType={workspaceType}
           onPromptNativeFolder={handleConnectLocalFolder}
-          onResetVirtualWorkspace={handleResetVirtualWorkspace}
-          onExportVirtualZip={handleExportVirtualCollection}
+          onRequestCloseWorkspace={handleRequestCloseWorkspace}
         />
 
         {/* Working board layout */}
@@ -740,20 +908,10 @@ export default function App() {
               items={items}
             />
           ) : (
-            <div className="h-full flex flex-col items-center justify-center p-8 text-center bg-brand-cream select-none">
-              <FileText size={56} className="text-brand-rust mb-4 animate-pulse" />
-              <h3 className="text-lg font-serif font-black text-gray-800 dark:text-neutral-100 mb-1">未选中或没有打开任何文档</h3>
-              <p className="text-xs font-serif text-gray-400 max-w-xs mb-6">
-                请在左侧树目录双击选择一篇 Markdown 进行编写，或在关联成功后新建文档。
+            <div className="h-full flex items-center justify-center p-8 bg-brand-cream select-none">
+              <p className="text-sm text-gray-400 text-center leading-relaxed">
+                没有文档，可以拖拽任意文档到窗口中打开
               </p>
-              {workspaceType !== 'native' && (
-                <button
-                  onClick={handleConnectLocalFolder}
-                  className="rounded bg-[#1a1a1a] hover:bg-brand-rust text-white font-semibold text-xs px-5 py-2.5 shadow-sm hover:scale-[1.02] active:scale-[0.98] transition-all cursor-pointer animate-bounce"
-                >
-                  关联项目磁盘文件夹
-                </button>
-              )}
             </div>
           )}
         </div>

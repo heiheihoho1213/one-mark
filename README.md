@@ -107,20 +107,24 @@ npm run tauri:build
 | 命令 | 适用机器 | 说明 |
 |---|---|---|
 | `npm run tauri:build` | 当前机器架构 | 默认，最省事 |
-| `npm run tauri:build -- --target aarch64-apple-darwin` | 仅 Apple Silicon（M 系列） | 只需安装 `aarch64` target |
-| `npm run tauri:build -- --target x86_64-apple-darwin` | 仅 Intel Mac | 只需安装 `x86_64` target |
-| `npm run tauri:build -- --target universal-apple-darwin` | Intel + Apple Silicon 通用 | 两个 target 都需要，文件体积约为单架构的 2 倍 |
+| `npm run tauri:build:mac-arm` | 仅 Apple Silicon（M 系列） | `aarch64-apple-darwin` |
+| `npm run tauri:build:mac-intel` | 仅 Intel Mac | `x86_64-apple-darwin` |
+| `npm run tauri:build:mac-universal` | Intel + Apple Silicon 通用 | 两个 Mac target 都需要，体积约 2 倍 |
+| `npm run tauri:build:win` | Windows 64 位 | 需在 Windows 上执行，`x86_64-pc-windows-msvc` |
+
+首次跨架构打包前，安装所需 Rust target：
+
+```bash
+npm run tauri:targets:install
+```
 
 #### Universal Binary（Intel + Apple Silicon 双架构合包）
 
 `universal-apple-darwin` 会同时编译两个架构再合并，在 Intel Mac 和 Apple Silicon Mac 上都能原生运行，无需 Rosetta 2 转译。
 
 ```bash
-# 两个 target 都需要安装
-rustup target add aarch64-apple-darwin
-rustup target add x86_64-apple-darwin
-
-npm run tauri:build -- --target universal-apple-darwin
+npm run tauri:targets:install
+npm run tauri:build:mac-universal
 ```
 
 #### 代码签名（可选，正式分发需要）
@@ -149,7 +153,7 @@ npm run tauri:build -- --target universal-apple-darwin
 #### 执行构建
 
 ```bash
-npm run tauri:build
+npm run tauri:build:win
 ```
 
 #### 产物

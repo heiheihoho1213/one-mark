@@ -1,0 +1,4 @@
+[[permission]]
+identifier = "allow-move-to-trash"
+description = "允许将文件或文件夹移入系统回收站"
+commands.allow = ["move_to_trash"]

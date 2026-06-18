@@ -25,7 +25,7 @@ export type WorkspaceItem = WorkspaceFile | WorkspaceFolder;
 export interface WorkspaceState {
   items: Record<string, WorkspaceItem>;
   rootId: string;
-  type: 'native' | 'virtual';
+  type: 'native' | 'empty';
   nativeHandle: FileSystemDirectoryHandle | null;
   name: string;
 }
@@ -37,6 +37,12 @@ export interface OpenedTab {
 
 export type EditorMode = 'split' | 'wysiwyg' | 'source'; // Vditor-style modes
 export type UserMode = 'read' | 'write'; // App main toggle
+
+/** 是否为 Markdown 文件（侧边栏仅展示此类文件） */
+export function isMarkdownFileName(name: string): boolean {
+  const lower = name.toLowerCase();
+  return lower.endsWith('.md') || lower.endsWith('.markdown');
+}
 
 export const DEFAULT_INITIAL_DATA: Record<string, WorkspaceItem> = {
   'root': {

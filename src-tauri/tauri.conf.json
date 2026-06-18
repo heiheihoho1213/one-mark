@@ -12,12 +12,14 @@
     "macOSPrivateApi": true,
     "windows": [
       {
+        "label": "main",
         "title": "OneMark - Markdown Editor",
         "width": 1024,
         "height": 768,
         "minWidth": 800,
         "minHeight": 600,
-        "decorations": false,
+        "center": true,
+        "decorations": true,
         "transparent": false,
         "shadow": true,
         "resizable": true
@@ -34,6 +36,26 @@
       "icons/128x128.png",
       "icons/128x128@2x.png",
       "icons/32x32.png"
+    ],
+    "fileAssociations": [
+      {
+        "ext": ["md", "markdown"],
+        "name": "Markdown 文档",
+        "description": "Markdown 文本文件",
+        "mimeType": "text/markdown",
+        "role": "Editor",
+        "rank": "Default",
+        "contentTypes": ["net.daringfireball.markdown", "public.plain-text"]
+      },
+      {
+        "ext": ["txt"],
+        "name": "纯文本",
+        "description": "纯文本文件",
+        "mimeType": "text/plain",
+        "role": "Editor",
+        "rank": "Alternate",
+        "contentTypes": ["public.plain-text", "public.text"]
+      }
     ]
   }
 }

@@ -1,9 +1,9 @@
-import React, { useState, useRef } from 'react';
+import React, { useState } from 'react';
 import { 
   Folder, FolderOpen, FileText, Plus, Trash2, Edit2, ChevronDown, ChevronRight, 
-  Upload, HardDrive, Binary, Link2, HelpCircle, FileImage, FolderPlus, Download, RefreshCw
+  HardDrive, Link2, HelpCircle, FolderPlus, FolderX
 } from 'lucide-react';
-import { WorkspaceItem, WorkspaceFolder, WorkspaceFile } from '../types';
+import { WorkspaceItem, WorkspaceFolder, WorkspaceFile, isMarkdownFileName } from '../types';
 
 interface SidebarProps {
   items: Record<string, WorkspaceItem>;
@@ -13,10 +13,9 @@ interface SidebarProps {
   onCreateItem: (parentId: string, name: string, type: 'file' | 'directory', fileContent?: string, binaryData?: { mimeType: string; dataUrl: string }) => void;
   onDeleteItem: (id: string) => void;
   onRenameItem: (id: string, newName: string) => void;
-  workspaceType: 'native' | 'virtual';
+  workspaceType: 'native' | 'empty';
   onPromptNativeFolder: () => void;
-  onResetVirtualWorkspace: () => void;
-  onExportVirtualZip: () => void;
+  onRequestCloseWorkspace?: () => void;
 }
 
 export default function Sidebar({
@@ -29,8 +28,7 @@ export default function Sidebar({
   onRenameItem,
   workspaceType,
   onPromptNativeFolder,
-  onResetVirtualWorkspace,
-  onExportVirtualZip,
+  onRequestCloseWorkspace,
 }: SidebarProps) {
   const [expandedFolders, setExpandedFolders] = useState<Record<string, boolean>>({
     'root': true,
@@ -41,9 +39,6 @@ export default function Sidebar({
   const [renameValue, setRenameValue] = useState('');
   const [showCreateInput, setShowCreateInput] = useState<{ id: string; type: 'file' | 'directory' } | null>(null);
   const [newItemName, setNewItemName] = useState('');
-  
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const importTargetFolderId = useRef<string>('root');
 
   const toggleFolder = (folderId: string) => {
     setExpandedFolders(prev => ({
@@ -88,39 +83,17 @@ export default function Sidebar({
     setEditingItemId(null);
   };
 
-  // Asset importer (e.g. uploading images into the workspace directory)
-  const handleImportAssetClick = (folderId: string) => {
-    importTargetFolderId.current = folderId;
-    if (fileInputRef.current) {
-      fileInputRef.current.click();
-    }
-  };
+  // 侧边栏展示所有文件夹，文件仅展示 Markdown
+  const getVisibleChildIds = (folderId: string): string[] => {
+    const folder = items[folderId] as WorkspaceFolder | undefined;
+    if (!folder?.children) return [];
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files;
-    if (!files || files.length === 0) return;
-
-    const file = files[0];
-    const reader = new FileReader();
-
-    if (file.name.toLowerCase().endsWith('.md') || file.name.toLowerCase().endsWith('.txt')) {
-      reader.onload = () => {
-        onCreateItem(importTargetFolderId.current, file.name, 'file', reader.result as string);
-      };
-      reader.readAsText(file);
-    } else {
-      // Treat as image asset
-      reader.onload = () => {
-        onCreateItem(importTargetFolderId.current, file.name, 'file', '', {
-          mimeType: file.type,
-          dataUrl: reader.result as string,
-        });
-      };
-      reader.readAsDataURL(file);
-    }
-    
-    // reset input
-    e.target.value = '';
+    return folder.children.filter((childId) => {
+      const node = items[childId];
+      if (!node) return false;
+      if (node.type === 'directory') return true;
+      return isMarkdownFileName(node.name);
+    });
   };
 
   // Recursively renders folders and files
@@ -134,7 +107,7 @@ export default function Sidebar({
 
     if (isFolder) {
       const isExpanded = expandedFolders[item.id] || false;
-      const folderChildren = item.children || [];
+      const folderChildren = getVisibleChildIds(item.id);
 
       return (
         <div key={item.id} className="select-none text-xs">
@@ -187,13 +160,16 @@ export default function Sidebar({
                 >
                   <FolderPlus size={13} />
                 </button>
-                <button
-                  onClick={(e) => { e.stopPropagation(); handleImportAssetClick(item.id); }}
-                  className="rounded p-0.5 text-gray-450 hover:bg-brand-border/50 hover:text-brand-rust dark:hover:bg-neutral-700"
-                  title="本地导入文件/图片"
-                >
-                  <Upload size={13} />
-                </button>
+                {/* 根目录：关闭文件夹引用（不删除磁盘文件） */}
+                {item.id === rootId && onRequestCloseWorkspace && (
+                  <button
+                    onClick={(e) => { e.stopPropagation(); onRequestCloseWorkspace(); }}
+                    className="rounded p-0.5 text-gray-450 hover:bg-brand-border/50 hover:text-gray-700 dark:hover:bg-neutral-700 dark:hover:text-neutral-200"
+                    title="关闭文件夹引用"
+                  >
+                    <FolderX size={13} />
+                  </button>
+                )}
                 {item.id !== rootId && (
                   <>
                     <button
@@ -239,16 +215,16 @@ export default function Sidebar({
               {folderChildren.map(childId => renderTree(childId))}
 
               {folderChildren.length === 0 && !showCreateInput && (
-                <div className="text-[10px] text-gray-400 italic pl-5 py-1">文件夹为空</div>
+                <div className="text-[10px] text-gray-400 italic pl-5 py-1">暂无 Markdown 文件</div>
               )}
             </div>
           )}
         </div>
       );
     } else {
+      if (!isMarkdownFileName(item.name)) return null;
+
       // File row
-      const isImg = (item as WorkspaceFile).mimeType?.startsWith('image/');
-      
       return (
         <div
           key={item.id}
@@ -260,8 +236,8 @@ export default function Sidebar({
           onClick={() => onSelectFile(item.id)}
         >
           <div className="flex flex-1 items-center gap-1.5 min-w-0 ml-5">
-            <span className={`${isSelected ? 'text-[#FCFAF8]' : isImg ? 'text-brand-rust/80' : 'text-brand-rust'} shrink-0`}>
-              {isImg ? <FileImage size={14} /> : <FileText size={14} />}
+            <span className={`${isSelected ? 'text-[#FCFAF8]' : 'text-brand-rust'} shrink-0`}>
+              <FileText size={14} />
             </span>
 
             {isEditing ? (
@@ -305,16 +281,12 @@ export default function Sidebar({
     }
   };
 
-  if (workspaceType !== 'native') {
+  if (workspaceType === 'empty') {
     return (
       <div id="sidebar-container" className="w-64 h-full flex flex-col border-r border-brand-border bg-brand-sidebar dark:border-neutral-800 select-none">
-        <div className="flex-1 flex flex-col items-center justify-center text-center p-6 select-none">
-          <div className="p-4 bg-brand-border/35 rounded-full mb-4 text-brand-rust dark:bg-neutral-800">
-            <FolderOpen size={28} className="animate-pulse" />
-          </div>
-          <h3 className="text-sm font-serif font-black text-gray-800 dark:text-neutral-200 mb-2">未关联本地文件夹</h3>
-          <p className="text-[11px] text-gray-400 font-serif max-w-[180px] leading-relaxed mb-6">
-            请在此处关联您电脑上的真实目录，即可开启本地 Markdown 的极简编辑和物理同步落盘。
+        <div className="flex flex-1 flex-col items-center justify-center px-6 text-center">
+          <p className="text-xs text-gray-400 leading-relaxed mb-4">
+            没有目录
           </p>
           <button
             id="btn-connect-local"
@@ -322,16 +294,8 @@ export default function Sidebar({
             className="flex items-center justify-center gap-1.5 w-full max-w-[190px] rounded bg-[#1a1a1a] hover:bg-brand-rust py-2.5 text-xs text-[#FCFAF8] font-bold shadow-sm transition-all duration-150 hover:scale-[1.02] active:scale-[0.98] cursor-pointer"
           >
             <Folder size={13} />
-            <span>点击选择本地文件夹</span>
+            <span>选择本地文件夹</span>
           </button>
-        </div>
-        <div className="p-3 border-t border-brand-border dark:border-neutral-850 bg-gray-50/20 text-[10px] text-gray-400 dark:text-neutral-500 select-none">
-          <div className="flex gap-1.5 items-start">
-            <HelpCircle size={12} className="shrink-0 mt-0.5 text-slate-400" />
-            <p className="leading-normal">
-              连接本地文件夹后，系统可实现直接本地物理保存、新建或自动重命名。
-            </p>
-          </div>
         </div>
       </div>
     );
@@ -339,15 +303,6 @@ export default function Sidebar({
 
   return (
     <div id="sidebar-container" className="w-64 h-full flex flex-col border-r border-brand-border bg-brand-sidebar dark:border-neutral-800 select-none">
-      
-      {/* File Action input */}
-      <input 
-        type="file" 
-        ref={fileInputRef} 
-        onChange={handleFileChange} 
-        className="hidden" 
-        accept=".md,.markdown,.png,.jpg,.jpeg,.gif,.svg,.webp"
-      />
 
       {/* Directory Selector Header */}
       <div className="p-3.5 border-b border-brand-border dark:border-neutral-800 bg-[#FCFAF8]/40">
@@ -378,31 +333,8 @@ export default function Sidebar({
         </div>
       </div>
 
-      {/* Title & Static Drag and Drop Dropzone Info */}
+      {/* 文件树区域：直接渲染目录内容，不显示「根目录」标题栏 */}
       <div className="flex-1 overflow-y-auto px-2.5 py-3 custom-tree-root">
-        <div className="flex items-center justify-between mb-2 px-1">
-          <span className="text-[11px] font-bold uppercase tracking-widest text-[#C05621] dark:text-amber-500">
-            根目录
-          </span>
-          <div className="flex items-center gap-1">
-            <button
-              onClick={() => handleStartCreation('root', 'file')}
-              className="rounded p-0.5 text-[#a1a1a1] hover:bg-brand-border/60 hover:text-[#1a1a1a] dark:hover:bg-neutral-800"
-              title="根目录创建 Markdown"
-            >
-              <Plus size={13} />
-            </button>
-            <button
-              onClick={() => handleStartCreation('root', 'directory')}
-              className="rounded p-0.5 text-[#a1a1a1] hover:bg-brand-border/60 hover:text-[#1a1a1a] dark:hover:bg-neutral-800"
-              title="根目录创建文件夹"
-            >
-              <FolderPlus size={13} />
-            </button>
-          </div>
-        </div>
-
-        {/* Recursively Render Files */}
         <div className="space-y-0.5">
           {renderTree(rootId)}
         </div>
@@ -413,7 +345,7 @@ export default function Sidebar({
         <div className="flex gap-1.5 items-start">
           <HelpCircle size={12} className="shrink-0 mt-0.5 text-slate-400" />
           <p className="leading-normal">
-            支持拖放入网：可从电脑拖放任意 <b>.md 文档 or 图片资产</b> 直至左侧工作空间树，即可自动复制载入！
+            支持拖放：将 .md 文档拖入窗口，自动载入所在文件夹。
           </p>
         </div>
       </div>

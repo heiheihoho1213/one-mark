@@ -1,4 +1,4 @@
-import { WorkspaceItem, WorkspaceFile, WorkspaceFolder } from '../types';
+import { WorkspaceItem, WorkspaceFile, WorkspaceFolder, isMarkdownFileName } from '../types';
 
 /**
  * Scan a native directory handle recursively and build a workspace tree.
@@ -26,30 +26,19 @@ export async function scanNativeDirectory(
   try {
     for await (const entry of (dirHandle as any).values()) {
       const entryId = `${dirId}/${entry.name}`;
-      childIds.push(entryId);
 
       if (entry.kind === 'directory') {
+        childIds.push(entryId);
         const subItems = await scanNativeDirectory(entry, entryId);
         Object.assign(items, subItems);
-      } else {
-        // File entry (lazy load details)
-        const isMarkdown = entry.name.toLowerCase().endsWith('.md') || entry.name.toLowerCase().endsWith('.markdown') || entry.name.toLowerCase().endsWith('.txt');
-        const isImage = /\.(png|jpe?g|gif|svg|webp)$/i.test(entry.name);
-        
-        let mimeType = 'text/plain';
-        if (entry.name.toLowerCase().endsWith('.md')) mimeType = 'text/markdown';
-        else if (entry.name.toLowerCase().endsWith('.png')) mimeType = 'image/png';
-        else if (entry.name.toLowerCase().endsWith('.jpg') || entry.name.toLowerCase().endsWith('.jpeg')) mimeType = 'image/jpeg';
-        else if (entry.name.toLowerCase().endsWith('.svg')) mimeType = 'image/svg+xml';
-        else if (entry.name.toLowerCase().endsWith('.gif')) mimeType = 'image/gif';
-        else if (entry.name.toLowerCase().endsWith('.webp')) mimeType = 'image/webp';
-
+      } else if (isMarkdownFileName(entry.name)) {
+        childIds.push(entryId);
         items[entryId] = {
           id: entryId,
           name: entry.name,
           type: 'file',
-          content: isMarkdown ? '' : '', // Lazy load content
-          mimeType,
+          content: '',
+          mimeType: 'text/markdown',
           handle: entry,
           parentId: dirId,
         };
@@ -225,34 +214,22 @@ export async function scanTauriDirectory(
 
     for (const entry of entries) {
       const isDirectory = entry.isDirectory;
-      const isFile = entry.isFile;
       const entryName = entry.name;
-      
       const entryId = `${dirId}/${entryName}`;
-      childIds.push(entryId);
-
       const entryPath = await join(dirPath, entryName);
 
       if (isDirectory) {
+        childIds.push(entryId);
         const subItems = await scanTauriDirectory(entryPath, entryId);
         Object.assign(items, subItems);
-      } else if (isFile) {
-        const isMarkdown = entryName.toLowerCase().endsWith('.md') || entryName.toLowerCase().endsWith('.markdown') || entryName.toLowerCase().endsWith('.txt');
-        
-        let mimeType = 'text/plain';
-        if (entryName.toLowerCase().endsWith('.md')) mimeType = 'text/markdown';
-        else if (entryName.toLowerCase().endsWith('.png')) mimeType = 'image/png';
-        else if (entryName.toLowerCase().endsWith('.jpg') || entryName.toLowerCase().endsWith('.jpeg')) mimeType = 'image/jpeg';
-        else if (entryName.toLowerCase().endsWith('.svg')) mimeType = 'image/svg+xml';
-        else if (entryName.toLowerCase().endsWith('.gif')) mimeType = 'image/gif';
-        else if (entryName.toLowerCase().endsWith('.webp')) mimeType = 'image/webp';
-
+      } else if (entry.isFile && isMarkdownFileName(entryName)) {
+        childIds.push(entryId);
         items[entryId] = {
           id: entryId,
           name: entryName,
           type: 'file',
           content: '',
-          mimeType,
+          mimeType: 'text/markdown',
           tauriPath: entryPath,
           parentId: dirId,
         };
@@ -324,5 +301,118 @@ export async function saveTauriFileContent(
     console.error('Tauri save file failed:', e);
     throw e;
   }
+}
+
+/** macOS 文件名可能为 NFD，统一为 NFC 便于比较 */
+function normalizeUnicode(value: string): string {
+  return value.normalize('NFC');
+}
+
+/** 判断是否为可通过「打开方式」关联的文本/Markdown 文件 */
+export function isOpenableTextPath(filePath: string): boolean {
+  return /\.(md|markdown|txt)$/i.test(filePath);
+}
+
+/**
+ * 从系统传入的绝对路径打开 Markdown 文件：
+ * 扫描所在目录为本地工作区，并激活目标文件。
+ */
+export async function openMarkdownFileFromPath(
+  filePath: string
+): Promise<{
+  items: Record<string, WorkspaceItem>;
+  workspaceName: string;
+  activeFileId: string;
+}> {
+  if (!isOpenableTextPath(filePath)) {
+    throw new Error('不支持的文件类型');
+  }
+
+  const { dirname, basename, normalize } = await import('@tauri-apps/api/path');
+  const { readTextFile, exists } = await import('@tauri-apps/plugin-fs');
+
+  const normalizedPath = normalizeUnicode(await normalize(filePath));
+  const dirPath = normalizeUnicode(await dirname(normalizedPath));
+  const fileName = normalizeUnicode(await basename(normalizedPath));
+  const workspaceName = normalizeUnicode((await basename(dirPath)) || dirPath);
+
+  const fileExists = await exists(normalizedPath);
+  if (!fileExists) {
+    throw new Error('文件不存在或无权访问');
+  }
+
+  let scannedItems = await scanTauriDirectory(dirPath, 'root');
+  const fileId = `root/${fileName}`;
+
+  let fileEntry = Object.values(scannedItems).find((item): item is WorkspaceFile => {
+    if (item.type !== 'file' || !item.tauriPath) return false;
+    const entryName = normalizeUnicode(item.name);
+    const entryPath = normalizeUnicode(item.tauriPath);
+    return entryName.toLowerCase() === fileName.toLowerCase()
+      || entryPath === normalizedPath;
+  });
+
+  if (!fileEntry) {
+    // 目录扫描未命中时（如 Unicode 规范化差异），直接按路径读取并补入树
+    const content = await readTextFile(normalizedPath);
+    const root = scannedItems['root'] as WorkspaceFolder | undefined;
+    if (!root) {
+      scannedItems['root'] = {
+        id: 'root',
+        name: workspaceName,
+        type: 'directory',
+        children: [fileId],
+        tauriPath: dirPath,
+        parentId: '',
+      };
+    } else if (!root.children.includes(fileId)) {
+      root.children.push(fileId);
+    }
+
+    fileEntry = {
+      id: fileId,
+      name: fileName,
+      type: 'file',
+      content,
+      mimeType: fileName.toLowerCase().endsWith('.md') ? 'text/markdown' : 'text/plain',
+      tauriPath: normalizedPath,
+      parentId: 'root',
+    };
+    scannedItems[fileId] = fileEntry;
+  } else {
+    const details = await loadTauriFileContent(fileEntry);
+    fileEntry = {
+      ...fileEntry,
+      content: details.content,
+      dataUrl: details.dataUrl,
+    };
+    scannedItems[fileEntry.id] = fileEntry;
+  }
+
+  return {
+    items: scannedItems,
+    workspaceName,
+    activeFileId: fileEntry.id,
+  };
+}
+
+/**
+ * 将工作区文件或文件夹移入系统回收站（桌面端）
+ */
+export async function moveWorkspaceItemToTrash(
+  item: WorkspaceItem,
+  parentFolder: WorkspaceFolder
+): Promise<void> {
+  if (item.tauriPath) {
+    const { invoke } = await import('@tauri-apps/api/core');
+    await invoke('move_to_trash', { path: item.tauriPath });
+    return;
+  }
+
+  if (parentFolder.handle) {
+    throw new Error('浏览器模式不支持回收站，请使用桌面客户端');
+  }
+
+  throw new Error('无法定位文件路径');
 }
 

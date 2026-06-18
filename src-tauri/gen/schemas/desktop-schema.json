@@ -2001,6 +2001,12 @@
       "description": "Permission identifier",
       "oneOf": [
         {
+          "description": "允许将文件或文件夹移入系统回收站",
+          "type": "string",
+          "const": "allow-move-to-trash",
+          "markdownDescription": "允许将文件或文件夹移入系统回收站"
+        },
+        {
           "description": "Default core plugins set.\n#### This default permission set includes:\n\n- `core:path:default`\n- `core:event:default`\n- `core:window:default`\n- `core:webview:default`\n- `core:app:default`\n- `core:image:default`\n- `core:resources:default`\n- `core:menu:default`\n- `core:tray:default`",
           "type": "string",
           "const": "core:default",

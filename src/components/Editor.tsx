@@ -2,6 +2,8 @@ import React, { useState, useEffect, useRef } from 'react';
 import Toolbar from './Toolbar';
 import Preview from './Preview';
 import { FileText, AlignLeft, BarChart2, CheckCheck, Save } from 'lucide-react';
+import { loadSavedEditorMode, saveEditorMode } from '../utils/sessionStorage';
+import { stripMarkdownInline } from '../utils/markdownText';
 
 interface EditorProps {
   initialMarkdown: string;
@@ -17,7 +19,8 @@ export default function Editor({
   items,
 }: EditorProps) {
   const [markdown, setMarkdown] = useState(initialMarkdown);
-  const [editorMode, setEditorMode] = useState<'split' | 'wysiwyg' | 'source'>('split');
+  // 记住上次使用的编辑模式
+  const [editorMode, setEditorMode] = useState<'split' | 'wysiwyg' | 'source'>(() => loadSavedEditorMode());
   
   // Undo / Redo Stacks
   const [history, setHistory] = useState<string[]>([initialMarkdown]);
@@ -31,6 +34,11 @@ export default function Editor({
     setHistory([initialMarkdown]);
     setHistoryIndex(0);
   }, [initialMarkdown, currentFileId]);
+
+  // 编辑模式变更时写入本地存储
+  useEffect(() => {
+    saveEditorMode(editorMode);
+  }, [editorMode]);
 
   // Handle value change, update history with simple debouncing/milestone limits
   const handleContentChange = (newVal: string) => {
@@ -112,6 +120,32 @@ export default function Editor({
   // Vditor toolbar insertion math with smart toggle reversibility
   const handleInsertMarkdown = (prefix: string, suffix: string, defaultText: string) => {
     const textarea = textareaRef.current;
+    const insertionText = prefix + defaultText + suffix;
+
+    // 即时渲染模式无 textarea 光标，按当前块或文档末尾插入 Markdown
+    if (editorMode === 'wysiwyg') {
+      const segments = markdown.split(/\n\n+/);
+      const activeEl = document.activeElement;
+      const previewBlocks = document.querySelectorAll('#md-preview-container .markdown-body[contenteditable]');
+      let insertAfterIndex = segments.length - 1;
+
+      if (activeEl?.getAttribute('contenteditable') === 'true') {
+        const focusedIdx = Array.from(previewBlocks).indexOf(activeEl as Element);
+        if (focusedIdx >= 0) insertAfterIndex = focusedIdx;
+      }
+
+      const before = segments.slice(0, insertAfterIndex + 1).join('\n\n');
+      const after = segments.slice(insertAfterIndex + 1).join('\n\n');
+      const blockToInsert = insertionText.trim();
+      const updated = after
+        ? `${before}\n\n${blockToInsert}\n\n${after}`
+        : before
+          ? `${before}\n\n${blockToInsert}`
+          : blockToInsert;
+      handleContentChange(updated);
+      return;
+    }
+
     if (!textarea) return;
 
     const start = textarea.selectionStart;
@@ -211,7 +245,8 @@ export default function Editor({
       if (match) {
         list.push({
           level: match[1].length,
-          text: match[2].trim(),
+          // 大纲仅展示纯文本，去掉 **、*、` 等行内格式
+          text: stripMarkdownInline(match[2]),
           lineNo: idx,
         });
       }
@@ -221,8 +256,23 @@ export default function Editor({
 
   const outline = extractOutline();
 
-  // Scroll to header line in editor
+  // Scroll to header line in editor or preview
   const handleOutlineClick = (lineNo: number) => {
+    const outlineIndex = outline.findIndex((item) => item.lineNo === lineNo);
+    if (outlineIndex < 0) return;
+
+    // 即时渲染模式：按大纲顺序滚动到预览区对应标题
+    if (editorMode === 'wysiwyg') {
+      const headings = document.querySelectorAll(
+        '#md-preview-container h1, #md-preview-container h2, #md-preview-container h3, #md-preview-container h4, #md-preview-container h5, #md-preview-container h6'
+      );
+      const target = headings[outlineIndex];
+      if (target) {
+        target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+      return;
+    }
+
     const textarea = textareaRef.current;
     if (!textarea) return;
 
@@ -260,8 +310,8 @@ export default function Editor({
       {/* Main Coding Layout */}
       <div className="flex flex-1 overflow-hidden">
         
-        {/* Outline panel - hidden if space is tight or no headers */}
-        {showEditor && outline.length > 0 && (
+        {/* 目录大纲：所有编辑模式均可用 */}
+        {outline.length > 0 && (
           <div id="editor-outline-panel" className="hidden lg:flex w-48 shrink-0 flex-col border-r border-brand-border dark:border-neutral-800 bg-brand-sidebar/40 dark:bg-black/15 p-3 select-none">
             <h4 className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-widest text-brand-rust mb-3 pl-1">
               <AlignLeft size={13} />
