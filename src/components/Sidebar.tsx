@@ -304,14 +304,14 @@ export default function Sidebar({
   return (
     <div id="sidebar-container" className="w-64 h-full flex flex-col border-r border-brand-border bg-brand-sidebar dark:border-neutral-800 select-none">
 
-      {/* Directory Selector Header */}
-      <div className="p-3.5 border-b border-brand-border dark:border-neutral-800 bg-[#FCFAF8]/40">
+      {/* 工作空间头部：暗色模式跟随侧边栏变量，避免硬编码浅色底 */}
+      <div className="p-3.5 border-b border-brand-border dark:border-neutral-800">
         <div className="flex items-center justify-between mb-2">
-          <span className="text-[10px] font-bold tracking-wider uppercase text-gray-400 dark:text-neutral-500 flex items-center gap-1">
+          <span className="text-[10px] font-bold tracking-wider uppercase text-gray-500 dark:text-neutral-400 flex items-center gap-1">
             <HardDrive size={10} />
             工作空间
           </span>
-          <span className="text-[10px] px-1.5 py-0.5 rounded font-semibold bg-[#E8E2DD] text-black dark:bg-neutral-800 dark:text-neutral-200">
+          <span className="text-[10px] px-1.5 py-0.5 rounded font-semibold bg-brand-border/40 text-gray-700 dark:bg-neutral-800 dark:text-neutral-300">
             本地文件夹
           </span>
         </div>
@@ -321,13 +321,13 @@ export default function Sidebar({
           <button
             id="btn-connect-local"
             onClick={onPromptNativeFolder}
-            className="flex items-center justify-center gap-1.5 w-full rounded-md bg-[#1a1a1a] hover:bg-brand-rust py-1.5 text-xs text-white font-medium shadow-xs transition-colors duration-150 group"
+            className="flex items-center justify-center gap-1.5 w-full rounded-md bg-gray-900 hover:bg-brand-rust py-1.5 text-xs text-white font-medium transition-colors duration-150 group dark:bg-neutral-800 dark:hover:bg-brand-rust"
           >
             <Link2 size={13} className="text-gray-300 group-hover:scale-110" />
             <span>切换关联本地文件夹</span>
           </button>
 
-          <div className="text-[10px] text-[#4a4a4a] dark:text-neutral-500 bg-brand-border/30 dark:bg-neutral-955 rounded p-1.5 leading-snug">
+          <div className="text-[10px] text-gray-600 dark:text-neutral-400 bg-brand-border/25 dark:bg-white/5 rounded p-1.5 leading-snug border border-brand-border/30 dark:border-neutral-800">
             📄 新建、修改和删除将<b>同步物理落地</b>到选定的本地目录。
           </div>
         </div>
@@ -340,8 +340,8 @@ export default function Sidebar({
         </div>
       </div>
 
-      {/* Quick guide block in footer */}
-      <div className="p-3 border-t border-gray-100 dark:border-neutral-800/60 bg-gray-50/20 text-[10px] text-gray-400 dark:text-neutral-500 select-none">
+      {/* 底部提示 */}
+      <div className="p-3 border-t border-brand-border/60 dark:border-neutral-800 text-[10px] text-gray-500 dark:text-neutral-500 select-none">
         <div className="flex gap-1.5 items-start">
           <HelpCircle size={12} className="shrink-0 mt-0.5 text-slate-400" />
           <p className="leading-normal">
