@@ -1,7 +1,8 @@
-import React, { useEffect, useCallback } from 'react';
+import React, { useEffect, useCallback, useRef, useLayoutEffect } from 'react';
 import { marked } from 'marked';
 import '../utils/markdownHighlight';
 import { FileText, Minus, Plus, ChevronDown } from 'lucide-react';
+import { isNavigationOrCopyKey, isToolbarEditing } from '../utils/wysiwygEditGuard';
 
 interface PreviewProps {
   markdown: string;
@@ -200,33 +201,7 @@ interface CodeBlockData {
   code: string;
 }
 
-/** 常用代码高亮语言（id 对应 highlight.js 语言名） */
-const CODE_LANGUAGES: { id: string; label: string }[] = [
-  { id: '', label: '纯文本' },
-  { id: 'go', label: 'Go' },
-  { id: 'javascript', label: 'JavaScript' },
-  { id: 'typescript', label: 'TypeScript' },
-  { id: 'python', label: 'Python' },
-  { id: 'java', label: 'Java' },
-  { id: 'rust', label: 'Rust' },
-  { id: 'c', label: 'C' },
-  { id: 'cpp', label: 'C++' },
-  { id: 'csharp', label: 'C#' },
-  { id: 'bash', label: 'Bash' },
-  { id: 'shell', label: 'Shell' },
-  { id: 'json', label: 'JSON' },
-  { id: 'yaml', label: 'YAML' },
-  { id: 'xml', label: 'XML' },
-  { id: 'html', label: 'HTML' },
-  { id: 'css', label: 'CSS' },
-  { id: 'sql', label: 'SQL' },
-  { id: 'markdown', label: 'Markdown' },
-  { id: 'php', label: 'PHP' },
-  { id: 'ruby', label: 'Ruby' },
-  { id: 'kotlin', label: 'Kotlin' },
-  { id: 'swift', label: 'Swift' },
-  { id: 'dockerfile', label: 'Dockerfile' },
-];
+import { codeLanguageOptions } from '../constants/codeLanguages';
 
 /** 从 Markdown 代码块解析语言与正文 */
 function parseMarkdownCode(raw: string): CodeBlockData | null {
@@ -425,11 +400,7 @@ function CodeLangToolbar({
   lang: string;
   onChange: (lang: string) => void;
 }) {
-  const options = [...CODE_LANGUAGES];
-  // 文档里已有但不在预设列表中的语言，也展示出来
-  if (lang && !options.some((item) => item.id === lang)) {
-    options.splice(1, 0, { id: lang, label: lang });
-  }
+  const options = codeLanguageOptions(lang);
 
   return (
     <div
@@ -467,6 +438,118 @@ function CodeLangToolbar({
         {lang ? `按 ${lang} 语法高亮` : '未指定语言，将自动检测'}
       </span>
     </div>
+  );
+}
+
+interface EditableBlockProps {
+  block: BlockItem;
+  canEdit: boolean;
+  isTable: boolean;
+  getBlockHtml: (raw: string) => string;
+  onKeyDown: (e: React.KeyboardEvent<HTMLDivElement>, inTable: boolean) => void;
+  onPaste: (e: React.ClipboardEvent<HTMLDivElement>, inTable: boolean) => void;
+}
+
+/**
+ * 即时渲染块：不用 dangerouslySetInnerHTML，避免重渲染擦掉内容；
+ * 非工具栏操作一律禁止改写 DOM（仅允许选区与导航）。
+ */
+function EditableBlock({
+  block,
+  canEdit,
+  isTable,
+  getBlockHtml,
+  onKeyDown,
+  onPaste,
+}: EditableBlockProps) {
+  const divRef = useRef<HTMLDivElement>(null);
+  const committedRawRef = useRef(block.raw);
+
+  // 仅当 Markdown 源码变化时刷新 DOM
+  useLayoutEffect(() => {
+    const el = divRef.current;
+    if (!el) return;
+    if (block.raw !== committedRawRef.current) {
+      el.innerHTML = getBlockHtml(block.raw);
+      committedRawRef.current = block.raw;
+    }
+  }, [block.raw, getBlockHtml]);
+
+  // 首次挂载写入 HTML
+  useLayoutEffect(() => {
+    const el = divRef.current;
+    if (!el || el.innerHTML) return;
+    el.innerHTML = getBlockHtml(block.raw);
+    committedRawRef.current = block.raw;
+  }, [block.raw, getBlockHtml]);
+
+  // 拦截浏览器在选区/失焦时偷偷改 DOM 的输入
+  useEffect(() => {
+    const el = divRef.current;
+    if (!el || !canEdit) return;
+
+    const blockMutation = (e: Event) => {
+      if (!isToolbarEditing()) {
+        e.preventDefault();
+      }
+    };
+
+    const restoreIfMutated = () => {
+      if (!isToolbarEditing() && divRef.current) {
+        divRef.current.innerHTML = getBlockHtml(committedRawRef.current);
+      }
+    };
+
+    const onCommitted = (event: Event) => {
+      const { blockId, raw } = (event as CustomEvent<{ blockId: number; raw: string }>).detail;
+      if (blockId === block.id) {
+        committedRawRef.current = raw;
+      }
+    };
+
+    el.addEventListener('beforeinput', blockMutation);
+    el.addEventListener('cut', blockMutation);
+    el.addEventListener('drop', blockMutation);
+    el.addEventListener('paste', blockMutation);
+    el.addEventListener('input', restoreIfMutated);
+    window.addEventListener('one-mark-block-committed', onCommitted);
+
+    return () => {
+      el.removeEventListener('beforeinput', blockMutation);
+      el.removeEventListener('cut', blockMutation);
+      el.removeEventListener('drop', blockMutation);
+      el.removeEventListener('paste', blockMutation);
+      el.removeEventListener('input', restoreIfMutated);
+      window.removeEventListener('one-mark-block-committed', onCommitted);
+    };
+  }, [canEdit, block.id, getBlockHtml]);
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
+    if (canEdit && !isToolbarEditing() && !isNavigationOrCopyKey(e)) {
+      e.preventDefault();
+      return;
+    }
+    onKeyDown(e, isTable);
+  };
+
+  const handlePaste = (e: React.ClipboardEvent<HTMLDivElement>) => {
+    if (canEdit && !isToolbarEditing()) {
+      e.preventDefault();
+      return;
+    }
+    onPaste(e, isTable);
+  };
+
+  return (
+    <div
+      ref={divRef}
+      data-block-id={block.id}
+      className="markdown-body select-text outline-none focus:outline-none"
+      contentEditable={canEdit}
+      suppressContentEditableWarning={true}
+      onKeyDown={handleKeyDown}
+      onPaste={handlePaste}
+    />
   );
 }
 
@@ -510,6 +593,13 @@ export default function Preview({
 
     const newBlockRaw = convertHtmlBlockToMarkdown(block, htmlContent);
     if (newBlockRaw === block.raw) return;
+
+    // 通知对应 EditableBlock 立即采纳新源码，避免工具栏改完后被 input 守卫误还原
+    window.dispatchEvent(
+      new CustomEvent('one-mark-block-committed', {
+        detail: { blockId: block.id, raw: newBlockRaw },
+      })
+    );
 
     const updatedBlocks = blocks.map((b) => {
       if (b.id === block.id) {
@@ -598,19 +688,19 @@ export default function Preview({
     return () => window.removeEventListener('one-mark-sync-block', onSyncBlock);
   }, [blocks, handleSaveBlockContent]);
 
-  // Helper to compile markdown block to HTML & resolve static images
-  const renderBlockHtml = (rawText: string): { __html: string } => {
+  // 将 Markdown 块编译为 HTML 字符串（EditableBlock 仅在源码变更时写入 DOM）
+  const getBlockHtml = useCallback((rawText: string): string => {
     const imgRegex = /!\[([^\]]*)\]\(([^)]+)\)/g;
     const resolvedText = rawText.replace(imgRegex, (match, alt, url) => {
       if (url.startsWith('http://') || url.startsWith('https://') || url.startsWith('data:')) {
         return match;
       }
-      
+
       const currentFolderId = currentFileId.substring(0, currentFileId.lastIndexOf('/')) || 'root';
       const cleanUrl = url.replace(/^\.\//, '');
       const finalId = `${currentFolderId}/${cleanUrl}`;
       const asset = items[finalId];
-      
+
       if (asset && asset.dataUrl) {
         return `![${alt}](${asset.dataUrl})`;
       }
@@ -627,19 +717,18 @@ export default function Preview({
     });
 
     try {
-      const options = {
-        gfm: true,
-        breaks: true,
-      };
-      
+      const options = { gfm: true, breaks: true };
       let parsedHtml = marked.parse(resolvedText, options) as string;
-      // Convert <del> tags to <s> so that browser's contenteditable execCommand('strikeThrough') can natively toggle them
       parsedHtml = parsedHtml.replace(/<del>/g, '<s>').replace(/<\/del>/g, '</s>');
-      return { __html: parsedHtml };
-    } catch (err) {
-      return { __html: `<p class="text-red-500">解析错误</p>` };
+      return parsedHtml;
+    } catch {
+      return `<p class="text-red-500">解析错误</p>`;
     }
-  };
+  }, [currentFileId, items]);
+
+  const renderBlockHtml = (rawText: string): { __html: string } => ({
+    __html: getBlockHtml(rawText),
+  });
 
   if (!markdown || markdown.trim() === '') {
     return (
@@ -662,17 +751,13 @@ export default function Preview({
             const canEditBlock = isReadMode && !!onChangeMarkdown;
 
             const editable = (
-              <div
-                data-block-id={block.id}
-                className="markdown-body select-text outline-none focus:outline-none"
-                contentEditable={canEditBlock}
-                suppressContentEditableWarning={true}
-                onBlur={(e) => {
-                  if (canEditBlock) handleSaveBlockContent(block, e.currentTarget.innerHTML);
-                }}
-                onKeyDown={(e) => handleEditableKeyDown(e, isTable)}
-                onPaste={(e) => handleEditablePaste(e, isTable)}
-                dangerouslySetInnerHTML={renderBlockHtml(block.raw)}
+              <EditableBlock
+                block={block}
+                canEdit={canEditBlock}
+                isTable={isTable}
+                getBlockHtml={getBlockHtml}
+                onKeyDown={handleEditableKeyDown}
+                onPaste={handleEditablePaste}
               />
             );
 

@@ -1,14 +1,8 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { 
-  Folder, FileText, Settings, Laptop, Moon, Sun, Monitor, 
-  HelpCircle, Sparkles, PencilLine, Eye, RefreshCw, X, Check,
-  ChevronRight, ArrowLeft, ArrowRight, Download, Terminal, Circle
-} from 'lucide-react';
 import Sidebar from './components/Sidebar';
 import Editor from './components/Editor';
-import Preview from './components/Preview';
-import Titlebar from './components/Titlebar';
+import Titlebar, { detectTitlebarMode } from './components/Titlebar';
 import DeleteConfirmDialog, { DeleteTarget } from './components/DeleteConfirmDialog';
 import CloseWorkspaceDialog from './components/CloseWorkspaceDialog';
 import { 
@@ -18,12 +12,23 @@ import {
 import { 
   scanNativeDirectory, loadNativeFileContent, saveNativeFileContent,
   openMarkdownFileFromPath, scanTauriDirectory, loadTauriFileContent,
-  moveWorkspaceItemToTrash,
+  moveWorkspaceItemToTrash, readTauriFileWithMtime,
 } from './utils/fileSystem';
 import {
   loadSavedTheme, saveTheme, saveWorkspaceSession, loadWorkspaceSession,
   clearWorkspaceSession,
 } from './utils/sessionStorage';
+import { blockNativeContextMenuUnlessAllowed } from './utils/contextMenuGuard';
+
+/** 是否在 Tauri 桌面环境中运行 */
+function detectTauriEnv(): boolean {
+  if (typeof window === 'undefined') return false;
+  return (
+    (window as any).__TAURI_INTERNALS__ !== undefined ||
+    (window as any).__TAURI__ !== undefined ||
+    navigator.userAgent.toLowerCase().includes('tauri')
+  );
+}
 
 // Tauri 插件抛出的错误可能是字符串而非 Error 对象，统一提取可读信息
 function errMsg(err: unknown): string {
@@ -48,6 +53,12 @@ export default function App() {
       root.classList.remove('dark');
     }
   }, [theme]);
+
+  // 空白区域禁用 WebView 默认右键菜单；可编辑区仍保留剪切/复制/粘贴
+  useEffect(() => {
+    document.addEventListener('contextmenu', blockNativeContextMenuUnlessAllowed);
+    return () => document.removeEventListener('contextmenu', blockNativeContextMenuUnlessAllowed);
+  }, []);
   
   // Workspace state（启动时为空白，无沙盒数据）
   const [items, setItems] = useState<Record<string, WorkspaceItem>>({});
@@ -58,11 +69,7 @@ export default function App() {
   // 标记是否已通过「打开文件」事件加载，避免与自动恢复会话冲突
   const openedViaSystemRef = useRef(false);
 
-  const isTauriEnv = () => typeof window !== 'undefined' && (
-    (window as any).__TAURI_INTERNALS__ !== undefined ||
-    (window as any).__TAURI__ !== undefined ||
-    navigator.userAgent.toLowerCase().includes('tauri')
-  );
+  const isTauriEnv = detectTauriEnv;
 
   // Message notifications and status triggers
   const [toasts, setToasts] = useState<{ id: string; text: string; type: 'success' | 'info' | 'error' }[]>([]);
@@ -91,6 +98,8 @@ export default function App() {
     }
   }, []);
 
+  const loadWorkspaceFromFilePathRef = useRef<(filePath: string) => Promise<boolean>>(async () => false);
+
   /** 从磁盘绝对路径导入所在文件夹并打开目标 Markdown 文件 */
   const loadWorkspaceFromFilePath = useCallback(async (filePath: string) => {
     try {
@@ -108,6 +117,8 @@ export default function App() {
     }
   }, [addToast, persistWorkspaceSession]);
 
+  loadWorkspaceFromFilePathRef.current = loadWorkspaceFromFilePath;
+
   // 同步窗口标题到系统原生标题栏（文档名 — OneMark）
   useEffect(() => {
     const activeFileName = activeFileId && items[activeFileId] ? items[activeFileId].name : null;
@@ -121,6 +132,9 @@ export default function App() {
         navigator.userAgent.toLowerCase().includes('tauri')
       );
       if (!isTauri) return;
+
+      // macOS Overlay + hiddenTitle：标题由自定义 Titlebar 渲染，勿再 setTitle 避免与系统栏重叠
+      if (detectTitlebarMode() === 'macos-overlay') return;
 
       try {
         let win;
@@ -139,7 +153,7 @@ export default function App() {
     syncTauriTitle();
   }, [activeFileId, items]);
 
-  // 监听系统「打开方式」传入的文件路径
+  // 监听系统「打开方式」传入的文件路径（含拖放 .md）
   useEffect(() => {
     if (!isTauriEnv()) return;
 
@@ -147,43 +161,59 @@ export default function App() {
     let unlistenDrop: (() => void) | undefined;
 
     const setupListeners = async () => {
-      const { listen } = await import('@tauri-apps/api/event');
-      unlistenOpen = await listen<string[]>('open-files', async (event) => {
-        openedViaSystemRef.current = true;
-        const filePath = event.payload?.find((p) => /\.(md|markdown|txt)$/i.test(p));
-        if (filePath) await loadWorkspaceFromFilePath(filePath);
-      });
+      try {
+        const { listen } = await import('@tauri-apps/api/event');
+        const { invoke } = await import('@tauri-apps/api/core');
+        const { getCurrentWebviewWindow } = await import('@tauri-apps/api/webviewWindow');
 
-      // Tauri 原生拖放：拖入 .md 后导入所在文件夹并打开
-      const { getCurrentWebviewWindow } = await import('@tauri-apps/api/webviewWindow');
-      const win = getCurrentWebviewWindow();
-      unlistenDrop = await win.onDragDropEvent(async (event) => {
-        if (event.payload.type !== 'drop') return;
-        const filePath = event.payload.paths.find((p) => /\.(md|markdown|txt)$/i.test(p));
-        if (filePath) await loadWorkspaceFromFilePath(filePath);
-      });
+        unlistenOpen = await listen<string[]>('open-files', async (event) => {
+          const filePath = event.payload?.find((p) => /\.(md|markdown|txt)$/i.test(p));
+          if (!filePath) return;
+          openedViaSystemRef.current = true;
+          await loadWorkspaceFromFilePathRef.current(filePath);
+        });
+
+        const pending = await invoke<string[]>('take_pending_open_files');
+        if (pending.length > 0) {
+          openedViaSystemRef.current = true;
+          const filePath = pending.find((p) => /\.(md|markdown|txt)$/i.test(p));
+          if (filePath) await loadWorkspaceFromFilePathRef.current(filePath);
+        }
+
+        const win = getCurrentWebviewWindow();
+        unlistenDrop = await win.onDragDropEvent(async (event) => {
+          if (event.payload.type !== 'drop') return;
+          const filePath = event.payload.paths.find((p) => /\.(md|markdown|txt)$/i.test(p));
+          if (filePath) await loadWorkspaceFromFilePathRef.current(filePath);
+        });
+      } catch (err) {
+        console.error('初始化文件打开监听失败:', err);
+      }
     };
 
-    setupListeners();
+    void setupListeners();
     return () => {
       unlistenOpen?.();
       unlistenDrop?.();
     };
-  }, [loadWorkspaceFromFilePath]);
+  }, []);
 
   // 启动时恢复上次打开的本地目录与文档（桌面端）
+  const persistRef = useRef(persistWorkspaceSession);
+  persistRef.current = persistWorkspaceSession;
+
   useEffect(() => {
     if (!isTauriEnv()) return;
 
     const restoreLastSession = async () => {
-      // 稍等系统「打开文件」事件，避免重复加载
       await new Promise((resolve) => setTimeout(resolve, 150));
+
       if (openedViaSystemRef.current) return;
 
-      const { workspacePath, activeFileId: savedFileId } = loadWorkspaceSession();
-      if (!workspacePath) return;
-
       try {
+        const { workspacePath, activeFileId: savedFileId } = loadWorkspaceSession();
+        if (!workspacePath) return;
+
         const { exists } = await import('@tauri-apps/plugin-fs');
         const pathExists = await exists(workspacePath);
         if (!pathExists) return;
@@ -210,7 +240,7 @@ export default function App() {
           const updatedFile = { ...file, content: details.content, dataUrl: details.dataUrl } as WorkspaceFile;
           setItems((prev) => ({ ...prev, [targetId!]: updatedFile }));
           setActiveFileId(targetId);
-          persistWorkspaceSession({ ...scannedItems, [targetId]: updatedFile }, targetId);
+          persistRef.current({ ...scannedItems, [targetId]: updatedFile }, targetId);
         } else {
           setActiveFileId(null);
         }
@@ -219,8 +249,8 @@ export default function App() {
       }
     };
 
-    restoreLastSession();
-  }, [persistWorkspaceSession]);
+    void restoreLastSession();
+  }, []);
 
   // 切换文档时同步保存当前打开的文件
   useEffect(() => {
@@ -643,24 +673,37 @@ export default function App() {
     addToast('已关闭文件夹引用', 'info');
   };
 
-  // 打开删除确认弹窗（第一步）
+  // 打开删除确认弹窗（仅 Markdown 文件）
   const handleRequestDelete = (itemId: string) => {
     const item = items[itemId];
     if (!item) return;
 
+    if (item.type === 'directory') {
+      addToast('文件夹不能删除，仅支持删除 Markdown 文件', 'info');
+      return;
+    }
+
+    if (!isMarkdownFileName(item.name)) {
+      addToast('仅支持删除 .md 文件', 'info');
+      return;
+    }
+
     setDeleteTarget({
       id: itemId,
       name: item.name,
-      type: item.type === 'directory' ? 'directory' : 'file',
+      type: 'file',
     });
   };
 
-  // 二次确认后执行：移入回收站
+  // 二次确认后执行：移入回收站（仅 .md 文件）
   const executeDeleteItem = async (itemId: string) => {
     setDeleteTarget(null);
 
     const item = items[itemId];
-    if (!item) return;
+    if (!item || item.type !== 'file' || !isMarkdownFileName(item.name)) {
+      addToast('仅支持删除 Markdown 文件', 'info');
+      return;
+    }
 
     const parentId = item.parentId || 'root';
     const parentFolder = items[parentId] as WorkspaceFolder;
@@ -838,7 +881,7 @@ export default function App() {
 
   return (
     <div 
-      className="h-screen overflow-hidden flex flex-col font-sans transition-colors duration-200 text-sm bg-brand-cream text-gray-800 border border-brand-border/60 shadow-2xl"
+      className="relative h-screen overflow-hidden flex flex-col font-sans transition-colors duration-200 text-sm bg-brand-cream text-gray-800"
       onDragOver={handleDragOver}
       onDrop={handleDrop}
     >
@@ -896,16 +939,25 @@ export default function App() {
           workspaceType={workspaceType}
           onPromptNativeFolder={handleConnectLocalFolder}
           onRequestCloseWorkspace={handleRequestCloseWorkspace}
+          onNotify={addToast}
         />
 
         {/* Working board layout */}
         <div className="flex-1 overflow-hidden">
           {activeFileId && items[activeFileId] && items[activeFileId].type === 'file' ? (
             <Editor 
+              key={activeFileId}
               initialMarkdown={(items[activeFileId] as WorkspaceFile).content || ''}
               onSaveMarkdown={handleSaveActiveMarkdown}
               currentFileId={activeFileId}
               items={items}
+              readFileFromDisk={
+                (items[activeFileId] as WorkspaceFile).tauriPath
+                  ? () => readTauriFileWithMtime(items[activeFileId] as WorkspaceFile)
+                  : undefined
+              }
+              onExportSuccess={() => addToast('已另存为新文件', 'success')}
+              onExportError={(msg) => addToast(`另存为失败: ${msg}`, 'error')}
             />
           ) : (
             <div className="h-full flex items-center justify-center p-8 bg-brand-cream select-none">

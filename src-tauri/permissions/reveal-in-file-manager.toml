@@ -1,0 +1,4 @@
+[[permission]]
+identifier = "allow-reveal-in-file-manager"
+description = "允许在 Finder / 资源管理器中打开目录上级位置"
+commands.allow = ["reveal_in_file_manager"]

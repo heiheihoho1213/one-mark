@@ -4,6 +4,8 @@ const KEYS = {
   activeFileId: 'onemark_active_file_id',
   theme: 'markdown_theme',
   editorMode: 'onemark_editor_mode',
+  outlineExpanded: 'onemark_outline_expanded',
+  sidebarExpanded: 'onemark_sidebar_expanded',
 } as const;
 
 export type EditorMode = 'split' | 'wysiwyg' | 'source';
@@ -18,16 +20,34 @@ export function saveTheme(theme: string): void {
   localStorage.setItem(KEYS.theme, theme);
 }
 
-/** 读取上次编辑器模式 */
+/** 读取上次编辑器模式（已固定为实时渲染） */
 export function loadSavedEditorMode(): EditorMode {
-  const saved = localStorage.getItem(KEYS.editorMode);
-  if (saved === 'split' || saved === 'wysiwyg' || saved === 'source') return saved;
   return 'wysiwyg';
 }
 
 /** 保存编辑器模式 */
 export function saveEditorMode(mode: EditorMode): void {
   localStorage.setItem(KEYS.editorMode, mode);
+}
+
+/** 读取目录大纲是否展开（默认展开） */
+export function loadOutlineExpanded(): boolean {
+  return localStorage.getItem(KEYS.outlineExpanded) !== '0';
+}
+
+/** 保存目录大纲展开状态 */
+export function saveOutlineExpanded(expanded: boolean): void {
+  localStorage.setItem(KEYS.outlineExpanded, expanded ? '1' : '0');
+}
+
+/** 读取工作区侧边栏是否展开（默认展开） */
+export function loadSidebarExpanded(): boolean {
+  return localStorage.getItem(KEYS.sidebarExpanded) !== '0';
+}
+
+/** 保存工作区侧边栏展开状态 */
+export function saveSidebarExpanded(expanded: boolean): void {
+  localStorage.setItem(KEYS.sidebarExpanded, expanded ? '1' : '0');
 }
 
 /** 保存工作区目录与当前文档 */

@@ -303,6 +303,29 @@ export async function saveTauriFileContent(
   }
 }
 
+/** 读取 Tauri 文本文件并返回 mtime，供外部变更感知 */
+export async function readTauriFileWithMtime(
+  file: WorkspaceFile
+): Promise<{ content: string; mtime: number } | null> {
+  if (!file.tauriPath) return null;
+  try {
+    const { readTextFile, stat } = await import('@tauri-apps/plugin-fs');
+    const [content, meta] = await Promise.all([
+      readTextFile(file.tauriPath),
+      stat(file.tauriPath),
+    ]);
+    const mtime =
+      meta.mtime instanceof Date
+        ? meta.mtime.getTime()
+        : typeof meta.mtime === 'number'
+          ? meta.mtime
+          : Date.now();
+    return { content, mtime };
+  } catch {
+    return null;
+  }
+}
+
 /** macOS 文件名可能为 NFD，统一为 NFC 便于比较 */
 function normalizeUnicode(value: string): string {
   return value.normalize('NFC');

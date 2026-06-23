@@ -9,6 +9,7 @@
       "core:event:default",
       "core:window:default",
       "core:window:allow-start-dragging",
+      "core:window:allow-start-resize-dragging",
       "core:window:allow-close",
       "core:window:allow-minimize",
       "core:window:allow-maximize",
@@ -37,6 +38,8 @@
       "fs:allow-mkdir",
       "fs:allow-remove",
       "fs:allow-rename",
-      "allow-move-to-trash"
+      "allow-move-to-trash",
+      "allow-take-pending-open-files",
+      "allow-reveal-in-file-manager"
     ]
   }

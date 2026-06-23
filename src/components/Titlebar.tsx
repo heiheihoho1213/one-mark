@@ -108,9 +108,9 @@ export function TitlebarControls({
             className="absolute right-0 top-[28px] w-40 bg-brand-cream border border-brand-border rounded-lg shadow-xl py-1 z-50 flex flex-col font-sans"
             data-no-drag
           >
-            <div className="px-2.5 py-1 text-[10px] text-gray-400 font-semibold border-b border-brand-border/60 mb-1">
+            {/* <div className="px-2.5 py-1 text-[10px] text-gray-400 font-semibold border-b border-brand-border/60 mb-1">
               精选编辑器皮肤
-            </div>
+            </div> */}
             {THEMES.map((t) => {
               const isSelected = t.id === activeTheme;
               return (
@@ -142,9 +142,9 @@ export function TitlebarControls({
         )}
       </div>
 
-      <span className="px-2 py-0.5 rounded-full bg-brand-border/40 text-brand-rust font-bold text-[10px]">
+      {/* <span className="px-2 py-0.5 rounded-full bg-brand-border/40 text-brand-rust font-bold text-[10px]">
         {workspaceType === 'native' ? '本地目录' : '未打开'}
-      </span>
+      </span> */}
     </div>
   );
 }
@@ -321,7 +321,7 @@ export default function Titlebar({
     }
   };
 
-  // macOS Overlay：薄层叠加在系统标题栏上
+  // macOS Overlay：系统红绿灯 + 居中标题 + 右侧主题
   if (isMacOverlay) {
     return (
       <div
@@ -330,8 +330,17 @@ export default function Titlebar({
         onMouseDown={handleMouseDown}
         className="h-[28px] shrink-0 bg-transparent flex items-center justify-end select-none relative font-sans z-50 pr-3"
       >
-        <div className="absolute inset-0" data-tauri-drag-region />
-        <div className="relative z-10" data-no-drag>
+        {/* 居中标题（不拦截点击） */}
+        <div className="pointer-events-none absolute inset-0 flex items-center justify-center px-28">
+          <span className="text-gray-800 dark:text-neutral-200 font-semibold truncate text-[12px] max-w-[45%] text-center">
+            {displayTitle}
+          </span>
+        </div>
+        <div
+          className="relative z-10"
+          data-no-drag
+          style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
+        >
           <TitlebarControls
             workspaceType={workspaceType}
             activeTheme={activeTheme}
@@ -346,7 +355,6 @@ export default function Titlebar({
   return (
     <div
       id="tauri-titlebar-overlay"
-      data-tauri-drag-region={isWindowsFrameless ? true : undefined}
       onMouseDown={isWindowsFrameless ? handleMouseDown : undefined}
       className={`shrink-0 bg-brand-sidebar border-b border-brand-border/60 flex items-center justify-between select-none relative font-sans text-xs text-gray-600 font-medium z-50 ${
         isWindowsFrameless ? 'h-[32px] pr-0' : 'h-[36px] px-4 justify-end'
@@ -355,7 +363,7 @@ export default function Titlebar({
       {isWindowsFrameless && (
         <>
           {/* 左侧：工作区名称 */}
-          <div className="flex items-center gap-2 pl-3 text-gray-700 font-semibold pointer-events-none shrink-0" data-tauri-drag-region>
+          <div className="flex h-full items-center gap-2 pl-3 text-gray-700 font-semibold shrink-0">
             <FileText size={14} className="text-brand-rust" />
             <span className="truncate max-w-[160px] font-medium text-xs text-gray-800 dark:text-neutral-200">
               {workspaceName}
@@ -363,10 +371,7 @@ export default function Titlebar({
           </div>
 
           {/* 中间：当前文档名 */}
-          <div
-            className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none flex items-center max-w-[40%] text-center"
-            data-tauri-drag-region
-          >
+          <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none flex items-center max-w-[40%] text-center">
             <span className="text-gray-800 dark:text-neutral-200 font-semibold truncate text-[12px]">
               {displayTitle}
             </span>

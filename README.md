@@ -3,10 +3,11 @@
 一款面向写作者的桌面级 Markdown 阅读与编辑器，基于 Tauri 2 + React 19 构建。提供双模式编辑、多工作空间管理与跨平台原生体验。
 
 > 开发环境：
-- macOS Ventura 14.7.2，Intel Mac mini 2023
+- macOS 14.8.4，Apple M1 Mac mini 2020
 - Node.js v24.14.0
-> 打包环境：macOS Ventura 14.7.2，Apple Silicon Mac mini 2023
-> 适配平台：Windows 11、macOS Ventura 14.7.2、Apple Silicon Mac mini 2023
+- Rust 1.96.0
+> 打包环境：macOS 14.8.4，Apple M1 Mac mini 2020
+> 适配平台：Windows 7+、macOS 10.15+
 
 ---
 

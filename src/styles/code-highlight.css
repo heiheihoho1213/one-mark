@@ -1,5 +1,5 @@
 /* 代码块语法高亮：浅色主题（GitHub 配色） */
-.markdown-body pre code.hljs {
+:is(.wysiwyg-code-block, .markdown-body) pre code.hljs {
   display: block;
   overflow-x: auto;
   padding: 0;
@@ -7,181 +7,181 @@
   color: #24292e;
 }
 
-.markdown-body pre code.hljs .hljs-doctag,
-.markdown-body pre code.hljs .hljs-keyword,
-.markdown-body pre code.hljs .hljs-meta .hljs-keyword,
-.markdown-body pre code.hljs .hljs-template-tag,
-.markdown-body pre code.hljs .hljs-template-variable,
-.markdown-body pre code.hljs .hljs-type,
-.markdown-body pre code.hljs .hljs-variable.language_ {
+:is(.wysiwyg-code-block, .markdown-body) pre code.hljs .hljs-doctag,
+:is(.wysiwyg-code-block, .markdown-body) pre code.hljs .hljs-keyword,
+:is(.wysiwyg-code-block, .markdown-body) pre code.hljs .hljs-meta .hljs-keyword,
+:is(.wysiwyg-code-block, .markdown-body) pre code.hljs .hljs-template-tag,
+:is(.wysiwyg-code-block, .markdown-body) pre code.hljs .hljs-template-variable,
+:is(.wysiwyg-code-block, .markdown-body) pre code.hljs .hljs-type,
+:is(.wysiwyg-code-block, .markdown-body) pre code.hljs .hljs-variable.language_ {
   color: #d73a49;
 }
 
-.markdown-body pre code.hljs .hljs-title,
-.markdown-body pre code.hljs .hljs-title.class_,
-.markdown-body pre code.hljs .hljs-title.class_.inherited__,
-.markdown-body pre code.hljs .hljs-title.function_ {
+:is(.wysiwyg-code-block, .markdown-body) pre code.hljs .hljs-title,
+:is(.wysiwyg-code-block, .markdown-body) pre code.hljs .hljs-title.class_,
+:is(.wysiwyg-code-block, .markdown-body) pre code.hljs .hljs-title.class_.inherited__,
+:is(.wysiwyg-code-block, .markdown-body) pre code.hljs .hljs-title.function_ {
   color: #6f42c1;
 }
 
-.markdown-body pre code.hljs .hljs-attr,
-.markdown-body pre code.hljs .hljs-attribute,
-.markdown-body pre code.hljs .hljs-literal,
-.markdown-body pre code.hljs .hljs-meta,
-.markdown-body pre code.hljs .hljs-number,
-.markdown-body pre code.hljs .hljs-operator,
-.markdown-body pre code.hljs .hljs-variable,
-.markdown-body pre code.hljs .hljs-selector-attr,
-.markdown-body pre code.hljs .hljs-selector-class,
-.markdown-body pre code.hljs .hljs-selector-id {
+:is(.wysiwyg-code-block, .markdown-body) pre code.hljs .hljs-attr,
+:is(.wysiwyg-code-block, .markdown-body) pre code.hljs .hljs-attribute,
+:is(.wysiwyg-code-block, .markdown-body) pre code.hljs .hljs-literal,
+:is(.wysiwyg-code-block, .markdown-body) pre code.hljs .hljs-meta,
+:is(.wysiwyg-code-block, .markdown-body) pre code.hljs .hljs-number,
+:is(.wysiwyg-code-block, .markdown-body) pre code.hljs .hljs-operator,
+:is(.wysiwyg-code-block, .markdown-body) pre code.hljs .hljs-variable,
+:is(.wysiwyg-code-block, .markdown-body) pre code.hljs .hljs-selector-attr,
+:is(.wysiwyg-code-block, .markdown-body) pre code.hljs .hljs-selector-class,
+:is(.wysiwyg-code-block, .markdown-body) pre code.hljs .hljs-selector-id {
   color: #005cc5;
 }
 
-.markdown-body pre code.hljs .hljs-regexp,
-.markdown-body pre code.hljs .hljs-string,
-.markdown-body pre code.hljs .hljs-meta .hljs-string {
+:is(.wysiwyg-code-block, .markdown-body) pre code.hljs .hljs-regexp,
+:is(.wysiwyg-code-block, .markdown-body) pre code.hljs .hljs-string,
+:is(.wysiwyg-code-block, .markdown-body) pre code.hljs .hljs-meta .hljs-string {
   color: #032f62;
 }
 
-.markdown-body pre code.hljs .hljs-built_in,
-.markdown-body pre code.hljs .hljs-symbol {
+:is(.wysiwyg-code-block, .markdown-body) pre code.hljs .hljs-built_in,
+:is(.wysiwyg-code-block, .markdown-body) pre code.hljs .hljs-symbol {
   color: #e36209;
 }
 
-.markdown-body pre code.hljs .hljs-comment,
-.markdown-body pre code.hljs .hljs-code,
-.markdown-body pre code.hljs .hljs-formula {
+:is(.wysiwyg-code-block, .markdown-body) pre code.hljs .hljs-comment,
+:is(.wysiwyg-code-block, .markdown-body) pre code.hljs .hljs-code,
+:is(.wysiwyg-code-block, .markdown-body) pre code.hljs .hljs-formula {
   color: #6a737d;
 }
 
-.markdown-body pre code.hljs .hljs-name,
-.markdown-body pre code.hljs .hljs-quote,
-.markdown-body pre code.hljs .hljs-selector-tag,
-.markdown-body pre code.hljs .hljs-selector-pseudo {
+:is(.wysiwyg-code-block, .markdown-body) pre code.hljs .hljs-name,
+:is(.wysiwyg-code-block, .markdown-body) pre code.hljs .hljs-quote,
+:is(.wysiwyg-code-block, .markdown-body) pre code.hljs .hljs-selector-tag,
+:is(.wysiwyg-code-block, .markdown-body) pre code.hljs .hljs-selector-pseudo {
   color: #22863a;
 }
 
-.markdown-body pre code.hljs .hljs-subst {
+:is(.wysiwyg-code-block, .markdown-body) pre code.hljs .hljs-subst {
   color: #24292e;
 }
 
-.markdown-body pre code.hljs .hljs-section {
+:is(.wysiwyg-code-block, .markdown-body) pre code.hljs .hljs-section {
   color: #005cc5;
   font-weight: bold;
 }
 
-.markdown-body pre code.hljs .hljs-bullet {
+:is(.wysiwyg-code-block, .markdown-body) pre code.hljs .hljs-bullet {
   color: #735c0f;
 }
 
-.markdown-body pre code.hljs .hljs-emphasis {
+:is(.wysiwyg-code-block, .markdown-body) pre code.hljs .hljs-emphasis {
   color: #24292e;
   font-style: italic;
 }
 
-.markdown-body pre code.hljs .hljs-strong {
+:is(.wysiwyg-code-block, .markdown-body) pre code.hljs .hljs-strong {
   color: #24292e;
   font-weight: bold;
 }
 
-.markdown-body pre code.hljs .hljs-addition {
+:is(.wysiwyg-code-block, .markdown-body) pre code.hljs .hljs-addition {
   color: #22863a;
   background-color: #f0fff4;
 }
 
-.markdown-body pre code.hljs .hljs-deletion {
+:is(.wysiwyg-code-block, .markdown-body) pre code.hljs .hljs-deletion {
   color: #b31d28;
   background-color: #ffeef0;
 }
 
 /* 暗色主题（曜石 / 赛博） */
-:is(html.dark, html[data-theme="obsidian"], html[data-theme="cyberpunk"]) .markdown-body pre code.hljs {
+:is(html.dark, html[data-theme="obsidian"], html[data-theme="cyberpunk"]) :is(.wysiwyg-code-block, .markdown-body) pre code.hljs {
   color: #c9d1d9;
 }
 
-:is(html.dark, html[data-theme="obsidian"], html[data-theme="cyberpunk"]) .markdown-body pre code.hljs .hljs-doctag,
-:is(html.dark, html[data-theme="obsidian"], html[data-theme="cyberpunk"]) .markdown-body pre code.hljs .hljs-keyword,
-:is(html.dark, html[data-theme="obsidian"], html[data-theme="cyberpunk"]) .markdown-body pre code.hljs .hljs-meta .hljs-keyword,
-:is(html.dark, html[data-theme="obsidian"], html[data-theme="cyberpunk"]) .markdown-body pre code.hljs .hljs-template-tag,
-:is(html.dark, html[data-theme="obsidian"], html[data-theme="cyberpunk"]) .markdown-body pre code.hljs .hljs-template-variable,
-:is(html.dark, html[data-theme="obsidian"], html[data-theme="cyberpunk"]) .markdown-body pre code.hljs .hljs-type,
-:is(html.dark, html[data-theme="obsidian"], html[data-theme="cyberpunk"]) .markdown-body pre code.hljs .hljs-variable.language_ {
+:is(html.dark, html[data-theme="obsidian"], html[data-theme="cyberpunk"]) :is(.wysiwyg-code-block, .markdown-body) pre code.hljs .hljs-doctag,
+:is(html.dark, html[data-theme="obsidian"], html[data-theme="cyberpunk"]) :is(.wysiwyg-code-block, .markdown-body) pre code.hljs .hljs-keyword,
+:is(html.dark, html[data-theme="obsidian"], html[data-theme="cyberpunk"]) :is(.wysiwyg-code-block, .markdown-body) pre code.hljs .hljs-meta .hljs-keyword,
+:is(html.dark, html[data-theme="obsidian"], html[data-theme="cyberpunk"]) :is(.wysiwyg-code-block, .markdown-body) pre code.hljs .hljs-template-tag,
+:is(html.dark, html[data-theme="obsidian"], html[data-theme="cyberpunk"]) :is(.wysiwyg-code-block, .markdown-body) pre code.hljs .hljs-template-variable,
+:is(html.dark, html[data-theme="obsidian"], html[data-theme="cyberpunk"]) :is(.wysiwyg-code-block, .markdown-body) pre code.hljs .hljs-type,
+:is(html.dark, html[data-theme="obsidian"], html[data-theme="cyberpunk"]) :is(.wysiwyg-code-block, .markdown-body) pre code.hljs .hljs-variable.language_ {
   color: #ff7b72;
 }
 
-:is(html.dark, html[data-theme="obsidian"], html[data-theme="cyberpunk"]) .markdown-body pre code.hljs .hljs-title,
-:is(html.dark, html[data-theme="obsidian"], html[data-theme="cyberpunk"]) .markdown-body pre code.hljs .hljs-title.class_,
-:is(html.dark, html[data-theme="obsidian"], html[data-theme="cyberpunk"]) .markdown-body pre code.hljs .hljs-title.class_.inherited__,
-:is(html.dark, html[data-theme="obsidian"], html[data-theme="cyberpunk"]) .markdown-body pre code.hljs .hljs-title.function_ {
+:is(html.dark, html[data-theme="obsidian"], html[data-theme="cyberpunk"]) :is(.wysiwyg-code-block, .markdown-body) pre code.hljs .hljs-title,
+:is(html.dark, html[data-theme="obsidian"], html[data-theme="cyberpunk"]) :is(.wysiwyg-code-block, .markdown-body) pre code.hljs .hljs-title.class_,
+:is(html.dark, html[data-theme="obsidian"], html[data-theme="cyberpunk"]) :is(.wysiwyg-code-block, .markdown-body) pre code.hljs .hljs-title.class_.inherited__,
+:is(html.dark, html[data-theme="obsidian"], html[data-theme="cyberpunk"]) :is(.wysiwyg-code-block, .markdown-body) pre code.hljs .hljs-title.function_ {
   color: #d2a8ff;
 }
 
-:is(html.dark, html[data-theme="obsidian"], html[data-theme="cyberpunk"]) .markdown-body pre code.hljs .hljs-attr,
-:is(html.dark, html[data-theme="obsidian"], html[data-theme="cyberpunk"]) .markdown-body pre code.hljs .hljs-attribute,
-:is(html.dark, html[data-theme="obsidian"], html[data-theme="cyberpunk"]) .markdown-body pre code.hljs .hljs-literal,
-:is(html.dark, html[data-theme="obsidian"], html[data-theme="cyberpunk"]) .markdown-body pre code.hljs .hljs-meta,
-:is(html.dark, html[data-theme="obsidian"], html[data-theme="cyberpunk"]) .markdown-body pre code.hljs .hljs-number,
-:is(html.dark, html[data-theme="obsidian"], html[data-theme="cyberpunk"]) .markdown-body pre code.hljs .hljs-operator,
-:is(html.dark, html[data-theme="obsidian"], html[data-theme="cyberpunk"]) .markdown-body pre code.hljs .hljs-variable,
-:is(html.dark, html[data-theme="obsidian"], html[data-theme="cyberpunk"]) .markdown-body pre code.hljs .hljs-selector-attr,
-:is(html.dark, html[data-theme="obsidian"], html[data-theme="cyberpunk"]) .markdown-body pre code.hljs .hljs-selector-class,
-:is(html.dark, html[data-theme="obsidian"], html[data-theme="cyberpunk"]) .markdown-body pre code.hljs .hljs-selector-id {
+:is(html.dark, html[data-theme="obsidian"], html[data-theme="cyberpunk"]) :is(.wysiwyg-code-block, .markdown-body) pre code.hljs .hljs-attr,
+:is(html.dark, html[data-theme="obsidian"], html[data-theme="cyberpunk"]) :is(.wysiwyg-code-block, .markdown-body) pre code.hljs .hljs-attribute,
+:is(html.dark, html[data-theme="obsidian"], html[data-theme="cyberpunk"]) :is(.wysiwyg-code-block, .markdown-body) pre code.hljs .hljs-literal,
+:is(html.dark, html[data-theme="obsidian"], html[data-theme="cyberpunk"]) :is(.wysiwyg-code-block, .markdown-body) pre code.hljs .hljs-meta,
+:is(html.dark, html[data-theme="obsidian"], html[data-theme="cyberpunk"]) :is(.wysiwyg-code-block, .markdown-body) pre code.hljs .hljs-number,
+:is(html.dark, html[data-theme="obsidian"], html[data-theme="cyberpunk"]) :is(.wysiwyg-code-block, .markdown-body) pre code.hljs .hljs-operator,
+:is(html.dark, html[data-theme="obsidian"], html[data-theme="cyberpunk"]) :is(.wysiwyg-code-block, .markdown-body) pre code.hljs .hljs-variable,
+:is(html.dark, html[data-theme="obsidian"], html[data-theme="cyberpunk"]) :is(.wysiwyg-code-block, .markdown-body) pre code.hljs .hljs-selector-attr,
+:is(html.dark, html[data-theme="obsidian"], html[data-theme="cyberpunk"]) :is(.wysiwyg-code-block, .markdown-body) pre code.hljs .hljs-selector-class,
+:is(html.dark, html[data-theme="obsidian"], html[data-theme="cyberpunk"]) :is(.wysiwyg-code-block, .markdown-body) pre code.hljs .hljs-selector-id {
   color: #79c0ff;
 }
 
-:is(html.dark, html[data-theme="obsidian"], html[data-theme="cyberpunk"]) .markdown-body pre code.hljs .hljs-regexp,
-:is(html.dark, html[data-theme="obsidian"], html[data-theme="cyberpunk"]) .markdown-body pre code.hljs .hljs-string,
-:is(html.dark, html[data-theme="obsidian"], html[data-theme="cyberpunk"]) .markdown-body pre code.hljs .hljs-meta .hljs-string {
+:is(html.dark, html[data-theme="obsidian"], html[data-theme="cyberpunk"]) :is(.wysiwyg-code-block, .markdown-body) pre code.hljs .hljs-regexp,
+:is(html.dark, html[data-theme="obsidian"], html[data-theme="cyberpunk"]) :is(.wysiwyg-code-block, .markdown-body) pre code.hljs .hljs-string,
+:is(html.dark, html[data-theme="obsidian"], html[data-theme="cyberpunk"]) :is(.wysiwyg-code-block, .markdown-body) pre code.hljs .hljs-meta .hljs-string {
   color: #a5d6ff;
 }
 
-:is(html.dark, html[data-theme="obsidian"], html[data-theme="cyberpunk"]) .markdown-body pre code.hljs .hljs-built_in,
-:is(html.dark, html[data-theme="obsidian"], html[data-theme="cyberpunk"]) .markdown-body pre code.hljs .hljs-symbol {
+:is(html.dark, html[data-theme="obsidian"], html[data-theme="cyberpunk"]) :is(.wysiwyg-code-block, .markdown-body) pre code.hljs .hljs-built_in,
+:is(html.dark, html[data-theme="obsidian"], html[data-theme="cyberpunk"]) :is(.wysiwyg-code-block, .markdown-body) pre code.hljs .hljs-symbol {
   color: #ffa657;
 }
 
-:is(html.dark, html[data-theme="obsidian"], html[data-theme="cyberpunk"]) .markdown-body pre code.hljs .hljs-comment,
-:is(html.dark, html[data-theme="obsidian"], html[data-theme="cyberpunk"]) .markdown-body pre code.hljs .hljs-code,
-:is(html.dark, html[data-theme="obsidian"], html[data-theme="cyberpunk"]) .markdown-body pre code.hljs .hljs-formula {
+:is(html.dark, html[data-theme="obsidian"], html[data-theme="cyberpunk"]) :is(.wysiwyg-code-block, .markdown-body) pre code.hljs .hljs-comment,
+:is(html.dark, html[data-theme="obsidian"], html[data-theme="cyberpunk"]) :is(.wysiwyg-code-block, .markdown-body) pre code.hljs .hljs-code,
+:is(html.dark, html[data-theme="obsidian"], html[data-theme="cyberpunk"]) :is(.wysiwyg-code-block, .markdown-body) pre code.hljs .hljs-formula {
   color: #8b949e;
 }
 
-:is(html.dark, html[data-theme="obsidian"], html[data-theme="cyberpunk"]) .markdown-body pre code.hljs .hljs-name,
-:is(html.dark, html[data-theme="obsidian"], html[data-theme="cyberpunk"]) .markdown-body pre code.hljs .hljs-quote,
-:is(html.dark, html[data-theme="obsidian"], html[data-theme="cyberpunk"]) .markdown-body pre code.hljs .hljs-selector-tag,
-:is(html.dark, html[data-theme="obsidian"], html[data-theme="cyberpunk"]) .markdown-body pre code.hljs .hljs-selector-pseudo {
+:is(html.dark, html[data-theme="obsidian"], html[data-theme="cyberpunk"]) :is(.wysiwyg-code-block, .markdown-body) pre code.hljs .hljs-name,
+:is(html.dark, html[data-theme="obsidian"], html[data-theme="cyberpunk"]) :is(.wysiwyg-code-block, .markdown-body) pre code.hljs .hljs-quote,
+:is(html.dark, html[data-theme="obsidian"], html[data-theme="cyberpunk"]) :is(.wysiwyg-code-block, .markdown-body) pre code.hljs .hljs-selector-tag,
+:is(html.dark, html[data-theme="obsidian"], html[data-theme="cyberpunk"]) :is(.wysiwyg-code-block, .markdown-body) pre code.hljs .hljs-selector-pseudo {
   color: #7ee787;
 }
 
-:is(html.dark, html[data-theme="obsidian"], html[data-theme="cyberpunk"]) .markdown-body pre code.hljs .hljs-subst {
+:is(html.dark, html[data-theme="obsidian"], html[data-theme="cyberpunk"]) :is(.wysiwyg-code-block, .markdown-body) pre code.hljs .hljs-subst {
   color: #c9d1d9;
 }
 
-:is(html.dark, html[data-theme="obsidian"], html[data-theme="cyberpunk"]) .markdown-body pre code.hljs .hljs-section {
+:is(html.dark, html[data-theme="obsidian"], html[data-theme="cyberpunk"]) :is(.wysiwyg-code-block, .markdown-body) pre code.hljs .hljs-section {
   color: #1f6feb;
   font-weight: bold;
 }
 
-:is(html.dark, html[data-theme="obsidian"], html[data-theme="cyberpunk"]) .markdown-body pre code.hljs .hljs-bullet {
+:is(html.dark, html[data-theme="obsidian"], html[data-theme="cyberpunk"]) :is(.wysiwyg-code-block, .markdown-body) pre code.hljs .hljs-bullet {
   color: #f2cc60;
 }
 
-:is(html.dark, html[data-theme="obsidian"], html[data-theme="cyberpunk"]) .markdown-body pre code.hljs .hljs-emphasis {
+:is(html.dark, html[data-theme="obsidian"], html[data-theme="cyberpunk"]) :is(.wysiwyg-code-block, .markdown-body) pre code.hljs .hljs-emphasis {
   color: #c9d1d9;
   font-style: italic;
 }
 
-:is(html.dark, html[data-theme="obsidian"], html[data-theme="cyberpunk"]) .markdown-body pre code.hljs .hljs-strong {
+:is(html.dark, html[data-theme="obsidian"], html[data-theme="cyberpunk"]) :is(.wysiwyg-code-block, .markdown-body) pre code.hljs .hljs-strong {
   color: #c9d1d9;
   font-weight: bold;
 }
 
-:is(html.dark, html[data-theme="obsidian"], html[data-theme="cyberpunk"]) .markdown-body pre code.hljs .hljs-addition {
+:is(html.dark, html[data-theme="obsidian"], html[data-theme="cyberpunk"]) :is(.wysiwyg-code-block, .markdown-body) pre code.hljs .hljs-addition {
   color: #aff5b4;
   background-color: #033a16;
 }
 
-:is(html.dark, html[data-theme="obsidian"], html[data-theme="cyberpunk"]) .markdown-body pre code.hljs .hljs-deletion {
+:is(html.dark, html[data-theme="obsidian"], html[data-theme="cyberpunk"]) :is(.wysiwyg-code-block, .markdown-body) pre code.hljs .hljs-deletion {
   color: #ffdcd7;
   background-color: #67060c;
 }

@@ -1,0 +1,4 @@
+[[permission]]
+identifier = "allow-take-pending-open-files"
+description = "允许前端读取启动时暂存的外部打开文件路径"
+commands.allow = ["take_pending_open_files"]

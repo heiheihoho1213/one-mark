@@ -2007,6 +2007,18 @@
           "markdownDescription": "允许将文件或文件夹移入系统回收站"
         },
         {
+          "description": "允许在 Finder / 资源管理器中打开目录上级位置",
+          "type": "string",
+          "const": "allow-reveal-in-file-manager",
+          "markdownDescription": "允许在 Finder / 资源管理器中打开目录上级位置"
+        },
+        {
+          "description": "允许前端读取启动时暂存的外部打开文件路径",
+          "type": "string",
+          "const": "allow-take-pending-open-files",
+          "markdownDescription": "允许前端读取启动时暂存的外部打开文件路径"
+        },
+        {
           "description": "Default core plugins set.\n#### This default permission set includes:\n\n- `core:path:default`\n- `core:event:default`\n- `core:window:default`\n- `core:webview:default`\n- `core:app:default`\n- `core:image:default`\n- `core:resources:default`\n- `core:menu:default`\n- `core:tray:default`",
           "type": "string",
           "const": "core:default",
