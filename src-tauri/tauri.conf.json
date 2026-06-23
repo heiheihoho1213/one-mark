@@ -1,6 +1,6 @@
 {
   "productName": "OneMark",
-  "version": "1.0.0",
+  "version": "0.0.2",
   "identifier": "com.monto.markdown",
   "build": {
     "beforeDevCommand": "npm run dev",
@@ -28,7 +28,7 @@
   },
   "bundle": {
     "active": true,
-    "targets": "all",
+    "targets": ["dmg", "nsis"],
     "macOS": {
       "infoPlist": "Info.plist"
     },

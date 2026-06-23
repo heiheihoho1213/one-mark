@@ -194,47 +194,28 @@ npm run tauri:build -- --bundles msi
 
 ---
 
-### 跨平台 CI 构建
+### 跨平台 CI 发布（GitHub Releases）
 
-本地无法跨平台编译（macOS 包必须在 macOS 上构建，Windows 包必须在 Windows 上构建）。推荐用 GitHub Actions 矩阵构建同时产出两端安装包：
+项目已配置 [`.github/workflows/release.yml`](.github/workflows/release.yml)。推送 `v*` 标签后自动构建并上传到 **GitHub Releases**：
 
-```yaml
-# .github/workflows/release.yml
-name: Release
+- **macOS Apple Silicon**（`aarch64`）→ `.dmg`
+- **macOS Intel**（`x86_64`）→ `.dmg`
+- **Windows** x64 → `.exe` 安装向导
 
-on:
-  push:
-    tags:
-      - 'v*'
+```bash
+# 发版前建议同步 tauri.conf.json 中的 version，提交代码后执行：
+npm run release              # 按 tauri.conf.json 的 version 打 tag 并推送
+npm run release -- 1.0.1     # 或指定版本号
+npm run release:retag        # 已有 tag 时，移到当前提交并强制推送（重发 CI）
+npm run release:retag -- 0.0.2
 
-jobs:
-  build:
-    strategy:
-      matrix:
-        os: [macos-latest, windows-latest]
-    runs-on: ${{ matrix.os }}
-
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 20
-
-      - uses: dtolnay/rust-toolchain@stable
-
-      - name: Install dependencies
-        run: npm install
-
-      - name: Build
-        run: npm run tauri:build
-
-      - name: Upload artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: OneMark-${{ matrix.os }}
-          path: src-tauri/target/release/bundle/
+# 等价于手动：
+# git tag v1.0.0 && git push origin v1.0.0
 ```
+
+也可在 **Actions → Release → Run workflow** 手动触发。
+
+产物发布地址：`https://github.com/<用户名>/<仓库名>/releases`
 
 ---
 
