@@ -3,7 +3,9 @@
 
 use std::sync::Mutex;
 
-use tauri::{Emitter, Manager, RunEvent, State};
+use tauri::{Emitter, Manager, State};
+#[cfg(any(target_os = "macos", target_os = "ios"))]
+use tauri::RunEvent;
 
 /// 暂存外部打开的文件路径（冷启动时前端监听器可能尚未就绪）
 struct PendingOpenFiles(Mutex<Vec<String>>);
@@ -33,8 +35,16 @@ fn reveal_in_file_manager(path: String) -> Result<(), String> {
 
     #[cfg(target_os = "windows")]
     {
+        let path = std::fs::canonicalize(target).unwrap_or_else(|_| target.to_path_buf());
+        let path_str = path.display().to_string();
+        // 含空格的路径需加引号，否则 explorer /select 会解析失败
+        let select_arg = if path_str.contains(' ') {
+            format!("/select,\"{}\"", path_str)
+        } else {
+            format!("/select,{}", path_str)
+        };
         std::process::Command::new("explorer")
-            .arg(format!("/select,{}", target.display()))
+            .arg(select_arg)
             .spawn()
             .map_err(|e| e.to_string())?;
     }
@@ -67,12 +77,17 @@ fn is_openable_text_file(path: &str) -> bool {
         || lower.ends_with(".txt")
 }
 
+/// 规范化命令行/关联文件传入的路径（Windows 可能带引号）
+fn normalize_cli_arg(arg: &str) -> String {
+    arg.trim().trim_matches('"').to_string()
+}
+
 /// 从启动参数中过滤出文件路径（跳过可执行文件本身）
 fn extract_file_paths(args: &[String]) -> Vec<String> {
     args.iter()
         .skip(1)
+        .map(|arg| normalize_cli_arg(arg))
         .filter(|arg| is_openable_text_file(arg))
-        .cloned()
         .collect()
 }
 
@@ -102,6 +117,20 @@ fn dispatch_open_files(app: &tauri::AppHandle, paths: Vec<String>) {
         let _ = window.emit("open-files", &paths);
     }
     let _ = app.emit("open-files", &paths);
+}
+
+/// macOS / iOS：处理系统「打开文件」事件（Windows 无此 RunEvent 变体）
+#[cfg(any(target_os = "macos", target_os = "ios"))]
+fn handle_opened_event(app_handle: &tauri::AppHandle, event: RunEvent) {
+    if let RunEvent::Opened { urls } = event {
+        let paths: Vec<String> = urls
+            .iter()
+            .filter_map(|url| url.to_file_path().ok())
+            .map(|path| path.to_string_lossy().into_owned())
+            .filter(|path| is_openable_text_file(path))
+            .collect();
+        dispatch_open_files(app_handle, paths);
+    }
 }
 
 fn main() {
@@ -155,15 +184,11 @@ fn main() {
         .build(tauri::generate_context!())
         .expect("error while running tauri application")
         .run(|app_handle, event| {
-            // macOS / iOS：冷启动与「已运行时再次打开文件」均走 Opened 事件
-            if let RunEvent::Opened { urls } = event {
-                let paths: Vec<String> = urls
-                    .iter()
-                    .filter_map(|url| url.to_file_path().ok())
-                    .map(|path| path.to_string_lossy().into_owned())
-                    .filter(|path| is_openable_text_file(path))
-                    .collect();
-                dispatch_open_files(app_handle, paths);
+            #[cfg(any(target_os = "macos", target_os = "ios"))]
+            handle_opened_event(app_handle, event);
+            #[cfg(not(any(target_os = "macos", target_os = "ios")))]
+            {
+                let _ = (app_handle, event);
             }
         });
 }
