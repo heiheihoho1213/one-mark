@@ -139,11 +139,8 @@ fn main() {
                     }
                 }
 
-                // 发布版关闭开发者工具，移除右键「检查元素」
-                #[cfg(not(debug_assertions))]
-                {
-                    let _ = window.set_devtools(false);
-                }
+                // Tauri 2 release 构建未启用 `devtools` Cargo feature 时，开发者工具默认关闭，
+                // 无需（也无法）在运行时调用 set_devtools。
             }
 
             // Windows / Linux 冷启动：文件路径在命令行参数中
