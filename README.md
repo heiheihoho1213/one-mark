@@ -266,6 +266,24 @@ markdown-workspace-editor/
 
 ---
 
+## 产品官网（GitHub Pages）
+
+官网源码位于 [`website/`](./website/)，推送 `main` 分支后由 GitHub Actions 自动构建并部署。
+
+**首次启用：**
+
+1. 仓库 **Settings → Pages → Source** 选择 **GitHub Actions**
+2. 推送代码或手动运行 **Deploy Website to GitHub Pages** workflow
+3. 访问 `https://<用户名>.github.io/<仓库名>/`
+
+本地预览：
+
+```bash
+cd website && npm install && npm run dev
+```
+
+---
+
 ## 常用命令速查
 
 | 命令 | 说明 |
